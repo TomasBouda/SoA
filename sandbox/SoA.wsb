@@ -1,0 +1,39 @@
+<Configuration>
+  <!-- The game does not need the network to be played: the GameSpy servers
+       have been dead since 2014. The default state is therefore Disable, which
+       cuts off the only route any malicious code could use to send or download
+       anything.
+
+       For the behavioural analysis it is switched to Enable temporarily so
+       that it is visible where the game tries to connect - see
+       _research/behavior.md. The test ran on 31 August 2026 with a clean
+       result, so it is Disable again. -->
+  <Networking>Disable</Networking>
+
+  <!-- The clipboard was disabled out of the same caution as the network, until
+       it was clear what the unlocked exe does. The run-time analysis of
+       31 August 2026 ended with a clean result (see _research/behavior.md), so
+       it is on - a screenshot can be taken straight out with it. Without the
+       network it stays the only way out, and only what a person copies
+       themselves has gone through it. -->
+  <ClipboardRedirection>Enable</ClipboardRedirection>
+  <AudioInput>Disable</AudioInput>
+  <VideoInput>Disable</VideoInput>
+  <PrinterRedirection>Disable</PrinterRedirection>
+
+  <VGpu>Enable</VGpu>
+  <MemoryInMB>8192</MemoryInMB>
+  <ProtectedClient>Disable</ProtectedClient>
+
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>F:\Games\SoA</HostFolder>
+      <SandboxFolder>C:\SoA</SandboxFolder>
+      <ReadOnly>false</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+
+  <LogonCommand>
+    <Command>C:\SoA\_sandbox\prepare.cmd</Command>
+  </LogonCommand>
+</Configuration>

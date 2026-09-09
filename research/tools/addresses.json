@@ -1,0 +1,95 @@
+{
+  "00405D80": {
+    "bytes": "8B44240853558BE98A0856578B7C2414",
+    "what": "the tsString constructor"
+  },
+  "00446DB8": {
+    "bytes": "A4020A0084C0755E8B0DBC39870033FF",
+    "stride": 268,
+    "what": "the base cheat table"
+  },
+  "004E83E8": {
+    "bytes": "8BCFE8E11B00008BC8E87A06F6FF8BCF",
+    "what": "the START_MISSION packet handler"
+  },
+  "0052F4A0": {
+    "bytes": "6AFF681B147A0064A100000000506489",
+    "what": "the base cheat dispatcher"
+  },
+  "00578800": {
+    "bytes": "8B8150010000C3909090909090909090",
+    "what": "the getter that returns a stamp"
+  },
+  "005E7B50": {
+    "bytes": "6AFF68BE937A0064A100000000506489",
+    "what": "the mission constructor"
+  },
+  "005E9910": {
+    "bytes": "6AFF68AC957A0064A100000000506489",
+    "what": "the mission message handler"
+  },
+  "005ECA70": {
+    "bytes": "6AFF6820977A0064A100000000506489",
+    "what": "the mission cheat handler"
+  },
+  "005F23D0": {
+    "bytes": "6AFF68F3997A0064A100000000506489",
+    "what": "quick save"
+  },
+  "005F26F0": {
+    "bytes": "6AFF68089A7A0064A100000000506489",
+    "what": "quick load"
+  },
+  "005F2C10": {
+    "bytes": "6AFF68689A7A0064A100000000506489",
+    "what": "load a saved game"
+  },
+  "0060BC60": {
+    "bytes": "6AFF68EEB27A0064A100000000506489",
+    "what": "load a mission by name"
+  },
+  "00663B80": {
+    "bytes": "568BF18B0D980F8800E8224002008A44",
+    "what": "the overlay switch"
+  },
+  "00675FD0": {
+    "bytes": "5356578B7C241085FF7C7B8B5C241485",
+    "what": "the path grid lookup"
+  },
+  "00684E90": {
+    "bytes": "A1980F88008B5424048B48240FAF4C24",
+    "what": "the ShowParty query"
+  },
+  "00685570": {
+    "bytes": "A1980F88008B5424048B48240FAF4C24",
+    "what": "the ShowGround query"
+  },
+  "006C3FD0": {
+    "bytes": "5156578BF9BE701988008B470C85C074",
+    "what": "the routine that stamps into the cell array"
+  },
+  "00758CBC": {
+    "bytes": "6A01FF742408E8DA3700005959C3E813",
+    "what": "operator new"
+  },
+  "007C8820": {
+    "bytes": "F0836D00104E6800404E6800F0836D00",
+    "stride": 24,
+    "what": "the ShowStructures overlay vtable"
+  },
+  "007D0568": {
+    "bytes": "307B5E00408D5E00808F5E0050965E00",
+    "stride": 32,
+    "what": "the mission vtable"
+  },
+  "007D31A4": {
+    "bytes": "F0836D006051680040526800F0836D00",
+    "stride": 24,
+    "what": "the ShowPathMap overlay vtable"
+  },
+  "0085CF10": {
+    "bytes": "71756974746572000000000000000000",
+    "stride": 108,
+    "what": "the mission cheat table"
+  }
+}
