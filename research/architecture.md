@@ -1,0 +1,1018 @@
+# The architecture of the game
+
+A summary of how the game is put together inside. It grew gradually while
+getting it running and fixing things, so it is written from the point of view of
+"what you need to know if you want to reach into it". The details and the
+procedures are in the topic documents it links to.
+
+In the source paths the engine is called **y2k** and the project had the code
+name **unborn** — the exe holds paths such as
+`D:\Sebastian\oldPC\C\Dev\builds\unborn\y2k_source\` and the `.gui` files hold
+the resource root `e:\Unborn_Resource\`.
+
+---
+
+## Rendering
+
+DirectDraw7 and Direct3D7, not DirectX 8, even though it ships on the disc. The
+code comes from `commonCode\DirectX7\App\`. At startup the game enumerates the
+devices and writes the mode into the log:
+
+```
+Info: DD Device enumerated: 1, NVIDIA GeForce RTX 3080 Ti, whql: 0.
+Info: Try to set display mode (2560 x 1360 x 32bpp x 0Hz).
+```
+
+The sound goes through DirectSound, the videos through Bink 1 (`binkw32.dll`)
+plus a piece of DirectShow. Multiplayer uses plain WinSock, no DirectPlay.
+
+### `dgVoodoo.conf` has the same keys in several sections
+
+The configuration of the wrapper is not flat. `Antialiasing` exists separately
+in `[Glide]` and in `[DirectX]`, `Filtering` only exists in `[DirectX]` (in
+`[Glide]` it is called `TMUFiltering`) and `FullScreenMode` sits in `[General]`.
+The game runs through DirectX, so the values from `[DirectX]` apply; whoever
+looks a key up by name without regard to the section gets the Glide value, which
+the wrapper never uses for this game.
+
+Our settings: `Filtering = 16` (16× anisotropic filtering), `Antialiasing = 8x`,
+`VRAM = 512`, `FullScreenMode = false` and `CaptureMouse = true` — in a window
+the cursor is captured reliably, in fullscreen it escaped out of the sandbox.
+
+---
+
+## The archives and the precedence of loose files
+
+The `*.ubn` files are **ordinary ZIP archives** (method 0, no compression). The
+engine mounts nine of them and the list is hardcoded in the exe:
+
+```
+1.1.0.71-1.1.1.118.ubn   videos  textures  terrain
+missions  sounds  objects  gui  data
+```
+
+The first one is the delta archive from the 1.1.2.178 patch — it carries
+`.diff3D` files with which the patched engine overwrites the older content.
+
+**Loose files next to the game take precedence over the archive.** Verified
+twice: by the sound fix and by the magenta cross across a GUI panel. It is the
+main lever for any modification — nothing has to be repacked.
+
+---
+
+## The family of containers
+
+Most of the data files share a 16-byte magic GUID that differs only in the first
+byte. The version and the record count follow it:
+
+| first byte | extension | content |
+|---|---|---|
+| `0x37` | `.olb` | object library (units, characters, animals, rockets) |
+| `0x38` | `.sav`, `.mis` | saved game and mission |
+| `0x39` | `.gui` | the list of graphical resources of a screen |
+| `0x40` | `.trs` | text resources |
+| `0x41` | `.lay` | element layout |
+
+The strings inside them have a one-byte length prefix. The parsers are in
+`tools/trs.py` and in the samples in this document.
+
+### `.trs` — texts
+
+```
+16 B  magic (0x40…)
+u32   version (2)
+u32   record count
+        for each: u32 ordinal, str id, str German ("leer"), str text, str reserve
+```
+
+### `.lay` — layout
+
+```
+16 B  magic (0x41…)
+u32   version (2)
+u32   record count
+        for each: u32 ordinal, str name, u32 id, u32 flag,
+                  float x, float y, float width, float height
+```
+
+The coordinates are in a design space, not in screen pixels — the minimap is
+134×134, the inventory 134×538, while on screen they are roughly three times
+that size. So the engine maps the design space onto the screen with a
+**constant scale** that it computes from the resolution and that appears nowhere
+in the data.
+
+Verified by experiment: doubling the width and height of the minimap in the
+`.lay` made it twice as large in the game and it grew over the neighbouring
+elements. So the coordinates are absolute, not relative to the extent of the
+layout.
+
+That has a consequence for attempts at a sharper interface: doubling the
+coordinates and the images gives you **a UI twice as large at the same
+quality**, because the area and its presentation grow by the same amount. It
+would only be sharper if that scale could be reduced with the elements left in
+place — and that would mean reaching into the exe, not into the data.
+
+### `.gui` — the resources of a screen
+
+```
+16 B  magic (0x39…)
+u32   version (2)
+u32   ?
+str   set id ("tGUIResourceID_Mission")
+str   resource root ("e:\Unborn_Resource\")
+u32   resource count
+        for each: u32 id, str path, 4× u32 constants (4, 2, 4, 1)
+```
+
+**There are no dimensions here** — those four constants are the same for every
+resource. So the size of the area comes from somewhere else, most likely from
+the `.lay`.
+
+---
+
+## Textures and sheets
+
+The key difference that decides what can be enlarged and what cannot:
+
+- **3D models** reference a texture **proportionally** (UV 0–1). Enlarging the
+  texture does not change the mapping, it only adds detail. That is why all 695
+  object textures could be replaced with no further work.
+- **The terrain and the GUI** use **pixel coordinates** into shared sheets.
+
+For the terrain the coordinates are held by `terrain/details.txt`:
+
+```
+ID;Name;Category;File;left;top;right;bottom
+16;…;standard/Asphaltstrasse.png;77;130;109;251
+```
+
+Those are not regular halves but hand-cut rectangles. The numbers look absolute,
+but the engine divides them by a **fixed** sheet size, so they behave
+proportionally: the sheet can be enlarged and the cuts fall into place on their
+own, while recomputed coordinates overflow and reach into the neighbouring
+piece. Verified in the game, the details and what follows from it are in
+[upscale.md](upscale.md).
+
+For the GUI it is different: there the engine stretches the image onto the area
+declared in the resource, so the extra resolution is thrown away.
+
+`terrain/displace/*.png` are not images but data for deforming the geometry; the
+range is given by `displace.txt`.
+
+---
+
+## Settings and controls
+
+Everything is in the registry under
+`HKCU\Software\Silver Style Entertainment\Soldiers of Anarchy\Settings`. The
+display, the detail levels, the volumes, the `CDKey` and the key assignments.
+
+The keys have the form `AK<hex action id>_<slot>`, the values are virtual key
+codes and `0xFFFFFFFF` means unassigned. Every action has two slots. **Watch out
+for the hexadecimal id** — read as a decimal number the entries silently miss.
+The complete table is in the main [README](../README.md).
+
+---
+
+### The graphics options in the registry
+
+The labels of the `soa.exe -o` dialog lie in the exe as wide strings (from
+`0x47C06A`), so it is visible from them what each value means.
+
+**`TextureDetail` and `ObjectDetail`: zero is the maximum.** The hint in the
+dialog reads *"You can decrease the texture resolution…"* — so the value is not
+the index of an option but the **amount of reduction**. Zero means no reduction,
+that is the highest quality. That matters for the enlarged textures: if zero
+meant the lowest detail, the game would be shrinking them itself on load.
+
+**The filters, on the other hand, are option indexes counted from one:**
+
+| value | `TextureMagFilter` (Enlarge) | `TextureMinFilter` (Shrink) | `MipmapFilter` |
+|---|---|---|---|
+| 1 | Point | Point | **Off** |
+| 2 | Linear | Linear | Point |
+| 3 | — | — | Linear |
+
+The default state of the package is 2, 2, 3, that is Linear everywhere. Turning
+the mipmaps off in the game means setting `MipmapFilter` to **1**.
+
+Mipmaps can be turned off in two places: here in the game and in
+`dgVoodoo.conf` through the `Mipmapping` option. The package has the dgVoodoo
+ones off, because most of the gain of the enlarged textures was being lost to
+them; setting both is consistent, nothing contradicts anything.
+
+---
+
+## Diagnostics
+
+The game writes `tracefile.log` next to the exe, with the categories
+`TRACE_ERROR`, `TRACE_WARNING`, `TRACE_INFO`, `TRACE_NETWORK_BASE`. The exe also
+holds categories named after the developers (`TRACE_SEBASTIAN`, `TRACE_RONNY`…)
+that correspond to the cheats with the same names — see [cheats.md](cheats.md).
+
+The log is the most valuable tool we have for this game. It revealed the missing
+sounds, the format of the cheat arguments and the cause of the crash at startup:
+
+```
+Texture render method failed (render to texture with own zbuffer).
+Error: ASSERT_HRESULT(0x887601C2)      = DDERR_SURFACELOST
+Warning: Can't render to texture.
+```
+
+---
+
+### The error codes
+
+Everything the game reports as `ASSERT_HRESULT(0x…)` is an HRESULT. Facility
+`0x007` is Win32 and `0x000` generic COM, `FormatMessage` translates both.
+Facility `0x876` belongs to DirectDraw and Direct3D and there the low 16 bits
+are the **decimal** number from the header — 450 is `DDERR_SURFACELOST`, 255 is
+`DDERR_NOTFOUND`. [tools/decode_error.py](tools/decode_error.py) translates it
+and can go through a whole log as well.
+
+The message always carries the place in the original code too, so it is visible
+where the error came from: `SoundObject.cpp(150)` is the sounds,
+`tsStream.cpp(85)` opening files, `DXA_img_png.cpp(68)` loading images.
+
+---
+
+## Command line arguments
+
+The switches are stored in the exe **in capital letters** in a single table at
+`0x467250` (version 1.1.2.178), with the single-letter `o`/`O` a little past
+them at `0x4672E8`. That is why they cannot be found by looking for strings
+starting with a dash — the shortcuts in the installer do pass `-o` and
+`-report`, but the parser evidently just cuts the dash off and compares
+case-insensitively.
+
+| argument | what it does |
+|---|---|
+| `o` / `O` | the graphics configuration dialog |
+| `REPORT` | a system report; `MAPISendMail` and `MAPI32.DLL` are nearby, so it gets sent by mail |
+| `UPDATE` | an update check |
+| `RECORD` | records the course of the game |
+| `REPLAY` | plays a recording back |
+| `UIOFF` | turns the interface off |
+| `HOST` | hosts a game over the network |
+| `CONNECT` | connects to a given IP (it is validated, with the message `Target IP illegal`) |
+| `TRACE_*` | turns a trace category on, 28 of them |
+| `VR`, `VRASTGA` | unknown — they appear nowhere else in the exe |
+| `xX` | apparently the character set for parsing a resolution such as `1024x768` |
+
+### Tracing is turned on from here
+
+Categories such as `TRACE_SKRIPT`, `TRACE_ROUTING`, `TRACE_INVENTORY`,
+`TRACE_DMG_DEATH` or `TRACE_SEBASTIAN` are command line arguments, not an effect
+of the developer cheats in the base as I originally assumed. The game prints at
+the start of the log which of them are on. `TRACE_SKRIPT` is interesting for
+work with the editor, `TRACE_ROUTING` and `TRACE_COMMANDO` for the AI behaviour.
+
+### Replay is a deterministic recording
+
+`RECORD` and `REPLAY` are not video but a recording of events per tick — the
+code holds `CS_UI_DONT_RECORD`, `CS_NETWORK_DONT_RECORD`,
+`CS_REPLAY_DONT_RECORD`, `RECORDING_UI`, the markers `TICK: %i`,
+`INFO: BUILD v%d.%d.%d.%d` and the error message
+`TRES_NETWORK_REPLAY_SYNC_ERROR`. The developers debugged multiplayer
+desynchronisation with it. The `replay.log.gz` file the game writes next to the
+exe belongs to the same system.
+
+---
+
+## The terrain
+
+The ground surface stands on three lists in `terrain.ubn`. `base.txt` names the
+base textures (`base/base_1.png` and on), `details.txt` addresses the details —
+roads, tracks, grass variants — as hand-cut rectangles in shared 256×256 sheets:
+
+```
+ID;Name;Category;File;left;top;right;bottom
+16;TRES_TERRAIN_TEXTUR_ASPHALTMITTE;...;standard\Asphaltstrasse.png;77;130;109;251
+```
+
+Those numbers look like absolute pixels, but the engine divides them by a
+**fixed** sheet size, not by the real size of the loaded image. So they are
+proportional: a sheet can be enlarged and the cuts fall into place on their own,
+while recomputed coordinates overflow and reach into the neighbouring piece.
+Verified in the game, the details are in [upscale.md](upscale.md).
+
+`mappings.txt` holds the conversion tables between the sets, so the same mission
+can be recoloured into a desert or into winter: `MAP 14 56` means that detail 14
+of the standard set corresponds to detail 56 of the desert one. The fourth list,
+`displace.txt`, belongs to `displace/*.png` — those are not images to look at
+but data for deforming the geometry.
+
+The code is in `source\landscape\`: `Y2K_LS_AreaDetails.cpp` loads `details.txt`
+and `displace.txt`, `detail_mappings.cpp` processes `mappings.txt`.
+
+### `TexGen.dat` has nothing to do with the textures
+
+Despite the name it says nothing about sheets. It is readable text in `data.ubn`
+(`data/UserData/TexGen.dat`) and it describes **the scattering of vegetation**
+for the terrain generator in the editor —
+`source\landscape\Y2K_LS_TerrainGenerator.cpp`:
+
+```
+BEGIN_GROUP
+    NAME "Gruppe"
+    DENSE 8.500000
+    BEGIN_INFLUENCE
+        ZONE_TYPE ZT_HEIGHT     FROM -20.000000  TO 149.500000
+    END_INFLUENCE
+    BEGIN_MEMBER
+        ID 3   WEIGHT 40.000000   SIZE_MIN 1.100000   SIZE_MAX 1.400000
+    END_MEMBER
+END_GROUP
+```
+
+A group has a density, a list of members with a weight and a size range, and on
+top of that the conditions `ZT_HEIGHT`, `ZT_ELEVATION` (slope) and
+`ZT_DIRECTION` (compass direction), each with a ramp through `FROM_SMOOTH` and
+`TO_SMOOTH`. With that you can say "scatter these two bushes on southern slopes
+up to 150 metres". The format is open, so populating a map with vegetation can
+be prepared by a script.
+
+---
+
+## The window: what decides it and what cannot be moved
+
+The game is not a full screen application in the DirectDraw sense - it is a
+window that covers the screen. Which window it is comes out of one byte of the
+application object, the flag at `+0xC5`, written once and unconditionally at
+`0x6269B8`:
+
+| flag | style at CreateWindowEx (`0x628251`) | what it looks like |
+|---|---|---|
+| 1 | `WS_POPUP` + `WS_EX_APPWINDOW｜WS_EX_TOPMOST` | borderless, always on top, glued to 0,0 |
+| 0 | `WS_OVERLAPPEDWINDOW` + `WS_EX_APPWINDOW` | title bar, resizable frame, ordinary window |
+
+[tools/patch_exe.py](tools/patch_exe.py) flips it, and the launcher writes
+it when the mode is picked. Two more things belong to the same story:
+
+* **The game minimises itself whenever it loses focus.** The handler at
+  `0x628520` calls `ShowWindow(SW_MINIMIZE)` on `WM_KILLFOCUS` and it is not
+  guarded by the flag at all, so it happens in both modes. And it is not the
+  only place: the deactivation branch of the same window procedure minimises a
+  second time at `0x628647`, that one only when the flag says full screen -
+  which is what drops the game into the taskbar the moment anything else is
+  clicked, the console window of the launcher included. Both are skipped (the
+  `jne` becomes a `jmp`, the `je` becomes a `nop` and a `jmp` of the same
+  length) and both are written whatever the mode is; they belong to the window
+  mode as little as the log sharing does.
+* **The size of the window cannot be fixed the same way.** The game only
+  resizes its window in the full screen path (`0x6282C5`), and the rectangle it
+  applies there does not come from the display mode: a few lines earlier the
+  same function fills it from `MonitorFromWindow` + `GetMonitorInfo`. Letting
+  that block run in a window was tried and it made the window cover the whole
+  monitor.
+
+So a window keeps the size the game created it with, which is not the chosen
+resolution. What the resolution still decides is what the game renders;
+dgVoodoo scales that into the window. Forcing `Resolution` in the `[DirectX]`
+section of `dgVoodoo.conf` was tried as well: it does change what is rendered,
+and the picture is right, but the window keeps its size. The remaining ways
+would be to resize the window from outside after the game starts, or to make
+that resize block use the display mode instead of the monitor - which needs a
+code cave, not a byte.
+
+`CaptureMouse` in `dgVoodoo.conf` is a separate thing: while it is true the
+cursor stays inside the game window whatever shape the window has.
+
+### The log keeps itself to itself
+
+The game opens `tracefile.log` with `CreateFileA(..., dwShareMode = 0, ...)` at
+`0x651DCF`, so while it runs nothing else can open the file - the share mode is
+decided by whoever opens first, and asking politely from the other side changes
+nothing. Pushing 1 (`FILE_SHARE_READ`) instead is the third patch in
+[tools/patch_exe.py](tools/patch_exe.py); the game only ever writes, so it does
+not notice. The launcher applies it whatever window mode is picked, which is
+what lets its console window follow the log while the game is running.
+
+---
+
+## The keys, and the screenshot nobody knew about
+
+The key bindings live in the registry under
+`HKCU\Software\Silver Style Entertainment\Soldiers of Anarchy\Settings` as
+`AK<id>_1` and `AK<id>_2`, two keys per action. **The number is hexadecimal**
+and it is the action's id, not its position in any list - the format string is
+`AK%X_1` at `0x866C98`. That is easy to get wrong: `AK30_1` is not the
+thirty-first action, it is id 0x30.
+
+The table it comes from is at `0x865820`, 67 records of sixteen bytes:
+
+    { DWORD id, char *name, DWORD key1, DWORD key2 }
+
+The ids are the game's own message numbers, which is why `AK_SAVE` is 0x424 and
+`AK_LOAD` is 0x425 - the same two the mission object dispatches for quick save
+and quick load. The alignment is worth pinning against those two: read the
+record one dword out and everything still looks plausible while being wrong.
+
+**`AK_SCREENSHOT` is id 0x7B and its default key is F12**, bound in the shipped
+settings and in the registry. The game writes `shot%04d.png` into its working
+directory - the `Game` folder when the launcher starts it - counting up from
+`shot0000.png`, so nothing is ever overwritten. It is the only way to take a
+picture of the game without leaving it, which full screen does not forgive.
+
+## The command console: it exists, and it cannot be opened
+
+The exe builds a whole tree of typed commands at startup, rooted in a node
+described as "application object", and answers an unknown one with
+`unknown command; try Help()`. Everything is there - names, one-line
+descriptions and named parameters:
+
+| command | what it does | parameters |
+|---|---|---|
+| `Help` | displays help | `string subject` |
+| `Quit` | quits application | |
+| `ScreenShot` | takes a screen shot | writes `shot%04d.png` |
+| `AirStrike` | order air strike | |
+| `ObjectMgr.Load` | loads an object | `string fileName` |
+| `ObjectMgr.Display` | displays a loaded object | `int ID` |
+| `Landscape.LoadHeightMap` | loads a height map from a bitmap | `filename, minHeight, maxHeight` |
+| `Landscape.SaveHeightMap` | saves the height map into a bitmap | `filename, minHeight, maxHeight` |
+| `Landscape.ShowPathMap` | shows/hides the path map | `int unitSizeX, int unitSizeY` |
+| `Landscape.ShowVisMap` | shows/hides the visibility map | `int iX, int iY, int enable` |
+| `Landscape.ShowKIMap` | shows/hides the AI map | `int generalID` |
+| `Landscape.ShowStructures`, `ShowAir`, `ShowParty`, `ShowObjectSize`, `ShowPath`, `ShowGround`, `ShowSmoke` | debug overlays | `int enable` |
+| `EventRecorder` / `Replay` | records or plays back events | |
+| `Replay.Jump` | jumps forward to a time | `Time` as `hh:mm:ss.msms` |
+| `Replay.SpeedFactor` | speeds the replay up or slows it down | 0.5 = half, 2.0 = double |
+| `Replay.ShowActTime`, `AbortReplay`, `AbortUIReplay` | | |
+
+**But nothing in the shipped build opens a line to type them into.** Four
+things say so:
+
+* the input table has 67 actions (`TRES_ACTIONS.trs`) and none of them is a
+  console; keys can only be bound to those actions
+* neither `gui.ubn` nor `data.ubn` holds a layout for a console
+* the exe imports no `AllocConsole` and no `WriteConsole`, so there is no
+  Windows console either
+* the command parser is called only from inside its own module - no path leads
+  to it from the input handling
+
+So the console was a developer tool that the release build registers but never
+shows. What did survive is the way in through other doors: `ScreenShot` has its
+own action (`AK_SCREENSHOT`), `RECORD` and `REPLAY` are command line switches,
+and the editor's File menu carries *Imp. Height Data*, *Exp. Height Data* and
+*Import Objects* - the same three operations as `LoadHeightMap`,
+`SaveHeightMap` and `ObjectMgr.Load`. The debug overlays had no other door -
+until it turned out they need no door at all, see below.
+
+### How a command is put together
+
+Each group of commands is one function that both describes itself and does the
+work. `Landscape` is `0x6D5E50`: called one way it writes the names and the
+help texts into the tree, called another way it takes the number of the command
+and runs a `switch` (the jump table is at `0x6D8378`). The registration writes
+the name at `-0x38` of the record, the number at `-0x28` and the description at
+`-0x24`, which is where this list comes from:
+
+| # | command | # | command |
+|---|---|---|---|
+| 0 | `ShowStructures` | 6 | `ShowVisMap` |
+| 1 | `ShowAir` | 7 | `ShowPath` |
+| 2 | `ShowParty` | 8 | `ShowGround` |
+| 3 | `ShowObjectSize` | 9 | `ShowPathMap` |
+| 4 | `ShowKIMap` | 10 | `LoadHeightMap` |
+| 5 | `SaveHeightMap` | 11 | `ShowSmoke` |
+
+### The height map can be exported without the editor
+
+Two of the Landscape commands do real work rather than flip a flag, and one of
+them turns out to be as easy to call from outside as the cheats are.
+
+`SaveHeightMap` is case 5, and its case body is short (`0x6D7F74`):
+
+    006D7F84  fild [ecx+0x34]  / push   ; maxHeight, as a float
+    006D7F8B  fild [ecx+0x1C]  / push   ; minHeight, as a float
+    006D7F8F  mov  ecx, [0x880F98]      ; the world
+    006D7F98  push eax                  ; the file name
+    006D7F99  call 0x6878A0
+
+So it is a thiscall on the world taking `(char *filename, float minHeight,
+float maxHeight)` and returning an int that is negative on failure. The file
+name is a **plain char pointer**, not a tsString, which makes it easier than
+anything else called from outside so far.
+
+What `0x6878A0` does is worth knowing before using it. It asks the renderer to
+stop (`[world+0x48]`, `0x662970`), builds a 32-bit off-screen surface of
+`[world+0x18]` by `[world+0x1C]` with the masks `00FF0000 / 0000FF00 /
+000000FF`, walks the height grid writing each height scaled between the two
+bounds into all three channels at once - so the picture is grey - hands the
+surface to the application's picture writer (`0x621530` on `[0x875B1C]`), and
+starts the renderer again. The exe carries libpng, so the format follows the
+name.
+
+`LoadHeightMap`, case 10 at `0x6D82A7`, is not as simple: the argument to
+`0x687660` is an object built by `0x47BFA0` out of the parsed parameters, so
+calling it means building that object too. The editor's *Imp. Height Data* does
+the same job through its own panel, which is the easier door.
+
+### Whether the replay system is there is a runtime question
+
+`EventRecorder` and `Replay` answer `no replay system available` when the
+global at `0x874AE0` is null (`0x6D4BC1`). That global is read elsewhere as
+well - the state switch in `Y2KApp.cpp` asks it something at `0x6D351C` - so it
+is not obviously absent from the release build, and whether a shipped game has
+one is a single dword read away while the game runs. Nobody has looked.
+
+### The overlays need no command tree
+
+The cases turned out to be almost nothing. Every overlay builds an object that
+is a vtable and no more, hangs it on the renderer and turns the drawing on:
+
+    push 4 / call operator new / mov [obj], 0x7C8820   <- ShowStructures
+    mov [renderer+0xB240], obj
+    mov ecx, renderer / push 1 / call 0x663B80
+
+The renderer is `[[0x880F98]+0x48]` - `0x880F98` is the terrain, null outside a
+mission - and `0x663B80` writes the byte at `+0xB23C` that says whether to
+draw. Turning it off is the same call with a zero.
+
+| overlay | vtable | size |
+|---|---|---|
+| `ShowStructures` | `0x7C8820` | 4 |
+| `ShowAir` | `0x7D31D4` | 4 |
+| `ShowParty` | `0x7D31C8` | 4 |
+| `ShowObjectSize` | `0x7D31BC` | 4 |
+| `ShowPath` | `0x7D31B0` | 4 |
+| `ShowGround` | `0x7C882C` | 4 |
+| `ShowPathMap` | `0x7D31A4` | 12, `+4` and `+8` are the unit size |
+| `ShowSmoke` | `0x7D31E0` | 4 |
+
+So the launcher writes the object into a page of its own inside the game and
+calls that one function - no command tree, no parsed parameters, no string. The
+object stays where it is: the game only ever frees the one it made itself, kept
+at `+0x3EC` of the landscape.
+
+`ShowVisMap` and `ShowKIMap` are the two that need more - they ask the
+visibility and the AI manager for a map first (`0x880FB0`, `0x6AE9B0`), which
+is a second object and a pointer, so they are not in yet.
+
+### One dword per map cell
+
+Reading the query methods of those overlay objects gave something better than
+the overlays themselves. Every one of them is the same three lines:
+
+    mov eax, [0x880F98]          ; the world, null outside a mission
+    mov ecx, [eax+0x24]          ; width in cells
+    imul ecx, y / add ecx, x
+    mov edx, [eax+0x2C]          ; the array
+    mov eax, [edx+ecx*4]         ; the cell
+
+So the whole map is one flat array of dwords, `[world+0x24]` wide and
+`[world+0x28]` high - the bounds the game itself checks before it indexes it
+(`0x47093A`). One dword is **one world unit**, not one cell of the `.mis` file:
+a campaign map reads 1200 x 1200, which is the 75 x 75 cells of the mission
+file times the sixteen units a cell is across. That is 5.8 MB, still small
+enough to copy out of the running game once or twice a second.
+
+Which bit is what comes from the overlay that asks for it:
+
+| bits | meaning | asked by |
+|---|---|---|
+| `0x00000008` | air | `ShowAir`, `0x684E50` |
+| `0x000000F0` | an object stands here; the bits are its size | `ShowObjectSize`, `0x684FB0` |
+| `0x00000F00` | the party of the unit standing here | `ShowParty`, `0x684E90` |
+| `0x00010000` | a structure | `ShowStructures`, `0x684E10` |
+| `0x00060000` | the ground type, two bits | `ShowGround`, `0x685570` |
+| `0x00200000` | smoke | `ShowSmoke`, `0x6855F0` |
+
+Objects stamp themselves into the array through one routine (`0x6C40E7`):
+each carries a keep-mask at `+0x14` and a value at `+0x18` and the game does
+`cell = (cell & mask) | value`, except for the size at `0xF0` and the low three
+bits, which are taken as the larger of the two - so where several things stand
+on top of each other, the biggest wins.
+
+The nibble at `0x00000F00` is the **number of the party** the unit standing
+there belongs to - which is what the game's own name for the overlay,
+"Shows/Hides party information", said from the start. It took two wrong
+readings to get there, and both are worth writing down because both looked
+convincing:
+
+* *a count of units.* Ruled out by counting the values in a running mission
+  ([tools/map_bits.py](tools/map_bits.py)): 1, 2, 3, 4, 5, 6, 8 and 9 turn up
+  and nothing else, and a count would not skip 7.
+* *four flags, one to a side.* Those same values all break down into `1|2|4|8`,
+  which is suggestive and wrong. Holding the map against the game seemed to
+  confirm it - a Hammer and the soldiers beside it came out differently - but
+  what that showed was two parties, not two kinds.
+
+What settled it was counting the classes of the unit objects against the
+numbers ([tools/find_units.py](tools/find_units.py)). The class of an object is
+its type, and one class turns up under four different numbers:
+
+| vtable | 1 | 2 | 3 | 4 | 5 | 6 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|
+| `0x7D66F4` | 8 | 2 | | 3 | | 15 | | |
+| `0x7DDAB8` | 1 | 1 | | | 2 | 4 | | |
+| `0x7DA3E8` | | | 2 | | | 2 | 4 | |
+| `0x7D6CA8` | 1 | | | 3 | | 2 | | |
+
+A type cannot be four things at once, so the number is not the type. Checked
+against the game three times over: the player's Hammer reads 2, a soldier of
+the player's reads 2 as well although it is a different class, and an enemy
+soldier a few cells away reads 6. That campaign mission had eight parties on
+the map at once, which fits a game where more than one enemy faction can be in
+play.
+
+Which number the player is has been 2 in both missions checked, M2 and M3 of
+the campaign, with the enemies around them reading 6. That is not enough to
+call it a constant, so the map window still draws the parties by number and
+names none of them. A cell takes the numbers of everything
+standing on it ORed together, so where two parties touch the value belongs to
+neither; a cell is one world unit, so this is rare.
+
+Telling friend from foe therefore works off this array after all - but only
+where the party can see, so the unit objects are still the way to the whole
+picture.
+
+### The objects behind the array
+
+The stamping routine gives the way to them. `0x578800` is `mov eax, [ecx+0x150]`
+and returns what the routine writes with, so every object that appears on the
+map keeps a **stamp** at `+0x150`:
+
+| the stamp | |
+|---|---|
+| `+0x14` | the mask, `cell & mask` - `0xFFFFFFFF` when nothing is claimed |
+| `+0x18` | the value ORed in: the size at `0xF0`, the kind at `0xF00` |
+| `+0x24`, `+0x28` | where it stands, in world units, as ints |
+
+And the object itself keeps its position twice: at `+0x54` and `+0x58` as
+floats. Those three agreeing - a vtable in the exe at `+0x00`, two floats
+inside the map, and a stamp at `+0x150` whose ints match them - is a signature
+nothing else in the heap answers to.
+[tools/find_units.py](tools/find_units.py) walks it, first from the map to the
+stamps to the objects, and then `--all` by the layout alone.
+
+In one campaign mission that gave 3318 objects standing on the map, 65 of them
+units, in half a dozen classes:
+
+| vtable | units |
+|---|---|
+| `0x7D66F4` | 28 |
+| `0x7DDAB8` | 8 |
+| `0x7DA3E8` | 8 |
+| `0x7D6CA8` | 6 |
+| `0x7D9DDC` | 4 |
+| `0x7D5644` | 3 |
+
+This matters because the objects are there whatever the party can see - the
+cell array is what comes and goes, not them. So a map drawn from the objects
+shows the whole mission, and the side each unit belongs to is a field of the
+object waiting to be found. The terrain, the structures and the objects are in it from the start
+whatever the party has seen. The unit bits are not: they stand only where the
+party can see at that moment and go again when it walks away, which
+`map_bits.py --watch` shows by counting the cells that appear and disappear
+between two readings. So this is live line of sight, not a map that fills in
+as it is explored and stays filled - which is why a mission cannot be looked at
+as a whole through this array alone.
+
+That is what the Map window of the launcher draws
+([tools/launcher/Map.cs](tools/launcher/Map.cs)): it copies the array out of
+the running game and paints it, so the map can be watched while the game is
+full screen. Nothing is written back.
+
+`ShowPathMap` is the exception - it does not read this array but asks the path
+manager at `[world+0x14]` cell by cell (`0x685160`). That manager has a grid of
+its own, and that is where the height lives:
+
+| | |
+|---|---|
+| the array | `[[world+0x14]+0xC4]+4`, ending at `+8` |
+| a cell | 76 bytes, indexed `y*width + x` (`0x675FD0`) |
+| the size | `+0xC8` and `+0xCC` of the manager, in world units, divided by 16 |
+| the height | the int at `+0x40` of a cell, in world units (`0x675C20`) |
+
+This is the coarse grid, then: one cell to sixteen units, which is exactly the
+cell of the `.mis` file, so a campaign map is 75 x 75 of them against the
+1200 x 1200 of the array above. The map window reads it once per mission - the
+terrain does not move - and shades the picture with it, height as brightness
+and the drop towards the north-west as a light, interpolating between the
+coarse cells so the shading does not come out in squares of sixteen. What `ShowPathMap` itself draws is a comparison: it
+takes the height of the walk grid and the height of the terrain and asks
+whether the step between them is at most one cell (`0x685203`), which is why it
+needs a unit size.
+
+While reading the argument parser two more switches lost their question mark:
+`VR` sets the flag at `0x874AE6` and `VRASTGA` the one at `0x874AEC`, both read
+in the replay code around `0x4F2D4A` and `0x4F4D05`. `UIOFF` clears `0x874AE5`,
+which is the "draw the interface" flag.
+
+### The way in that does work: calling the game's own functions
+
+What cannot be typed can still be called. The launcher opens the game process,
+writes a short piece of code into it and starts a thread on it
+([tools/launcher/GameLink.cs](tools/launcher/GameLink.cs)). The code is copied
+from what the game does itself when it takes a line from its own input: it
+builds a `tsString` with the game's own constructor at `0x405D80` - so the
+string belongs to the game and its destructor disposes of it properly - and
+hands it to the function that matches the line against a table. ASLR is off in
+`soa.exe`, so all these addresses hold.
+
+The two kinds of cheats need two different objects to be called on:
+
+| | base cheats | mission cheats |
+|---|---|---|
+| table | `0x446DB8`, stride 0x10C | `0x85CF10`, stride 0x6C |
+| function | `0x52F4A0`, takes the string and a number | `0x5ECA70`, takes the whole line |
+| the object | the global `0x8759D4` | the mission, found in the heap |
+| when it works | on the base screen | inside a mission |
+
+The base one is easy: `0x8759D4` holds the base screen while it is running and
+is null otherwise, which is also the check for whether the cheat can be sent at
+all - calling it with a null there would take the game down.
+
+The mission one has no global. The mission object is only ever reached through
+its vtable, whose message handler `0x5E9910` keeps `this` at `[esp+0x18]` and
+later calls the cheat handler with it (`0x5E9D2A`). So the launcher looks for
+the object itself: it walks the memory the game allocated for itself - the
+image is left out, so the mentions of the addresses in the code do not come up -
+and reads every dword.
+
+What it looks for are two numbers, because the mission inherits twice. Its
+constructor at `0x5E7B70` writes `0x7D0568` at the start of the object and
+`0x7D0564` at `+8`, and the tables of both sit next to each other:
+
+    007D0560   005E7B20    <- a four-byte object of another class, 0x5E791C
+    007D0564   005EED30    <- the mission, second table (+8 of the object)
+    007D0568   005E7B30    <- the mission, first table (the start of the object)
+    ...
+    007D0574   005E9650
+    007D0580   005E9910    <- the message handler that calls the cheats
+
+Taking `0x7D0560` for the start of the mission is the mistake that finds
+nothing: that address belongs to the four-byte object the game builds while a
+mission loads (`0x5E791C`) and hangs on the mission at `+0x224`. Two vtables in
+the right places are already unlikely to turn up by chance; on top of that the
+members the game reads on its way to the cheats - `+0x250`, `+0x260` and
+`+0x270` - all have to be pointers into readable memory. The address found is
+kept and only checked again on the next command, so a mission is walked for
+once.
+
+### Starting a mission - a wrong turn worth recording
+
+The last step that still wants a click, and the first attempt at it was wrong
+in a way that is easy to repeat.
+
+The reasoning went backwards from the result. When a mission loads the game
+builds a state object of the class `CY2KMissionLoad`, vtable `0x7D05E8`. Its
+constructor `0x5FB600` is called from exactly one place, `0x6D1F3B`, where the
+application allocates that state and hangs it on itself at `+0x398`. That sits
+inside `0x6D10E0`, and `0x6D10E0` has one caller, `0x511F10`. Every step is a
+fact. The conclusion drawn from them - that `0x511F10` is what the button runs -
+was not.
+
+Calling it took the game back through the intro videos to the menu, with text
+left over from the screen it had abandoned. Reading further explains why:
+`0x511F10` allocates three sub-objects of 0x70, 0x28 and 0x248 bytes and stores
+them at `+0x454`, `+0x458` and `+0x45C` of the application. It is the
+application setting itself up, and it *creates* the state machinery rather than
+driving it. Running it a second time started the application again.
+
+So `0x6D10E0` is a factory that makes a state, not a request for one, and the
+thing that asks for a mission has to be found somewhere else. Two places worth
+trying next: the network packet the game sends to start a mission - the names
+are in a table at `0x83F37C`, `START_MISSION` among them, which even in single
+player may be the mechanism - and the queue the messages `0x424` and `0x425`
+travel on, since the mission's own handler reads them there.
+
+### Checking that all of this still works
+
+Two halves, because they fail differently.
+[tools/check.py](tools/check.py) needs nothing started and runs on every build:
+every address the launcher calls or reads still holds the bytes pinned for it
+in `addresses.json`, each patch signature matches one place and reverses byte
+for byte, and the catalog agrees with `Data.set`. That catches an exe that
+moved.
+
+`Play.exe -selftest` needs the game and catches the other kind: the launcher
+itself. It starts the game, waits for the base screen, sends a base cheat with
+an argument, loads `Missions\Campaign\Mission_3\Mission_3.mis`, reads the map
+and the units, sends a mission cheat, quick saves and quick loads, closes the
+game and writes `selftest.txt`. It calls the same `GameLink` the windows call,
+so it tests what ships - which matters, because the one bug that hid for a
+while was the console sending an argument without its brackets, and no amount
+of address pinning would have found it.
+
+### Loading a mission by name
+
+After the wrong turn above, the second try went at it from the network side,
+where the game already has to tell itself to start a mission. The packet names
+are a table read by the switch at `0x4EDB5E`; `START_MISSION` is code 18. The
+handler is the switch at `0x4E78B0`, which indexes on the code **minus one**,
+so code 18 lands on case 17, `0x4E83E8`. What it does:
+
+    mark the network object at +0x600
+    read a name out of the packet, build a tsString from it
+    mov ecx, [0x875AEC]
+    call 0x60BC60          ; ret 0x10 - the string goes by value
+
+So `0x60BC60` takes the path of a `.mis` inside `missions.ubn` - for instance
+`missions/Campaign/Mission_3/Mission_3.mis`, and there are 26 of them - and
+loads it. That is a shape this project already knows how to call.
+
+It works. The first attempt passed the path as it appears inside
+`missions.ubn`, with forward slashes, and the log answered precisely:
+
+    Y2KMission.cpp(1855) : Info : LoadMission(missions/Campaign/Mission_3/Mission_3.mis)
+    tsStream.cpp(82)     : Error: Open file '...' failed.
+                           ASSERT_HRESULT(0x80070003)
+
+That is `ERROR_PATH_NOT_FOUND`: the call went through, the game logged it and
+switched to `ApplicationState MISSION`, and only the file was not where it
+looked. The exe writes those paths its own way -
+`Missions\Campaign\Mission_3\Mission_3.mis`, capital M and backslashes, in
+the strings around `0x846884` - and that is what it wants. The console offers
+the campaign as completions so nobody has to remember.
+
+Two limits, both found by the self test rather than by reading:
+
+* **It only works from the menu.** The object in `0x875AEC` is not there once
+  anything is loaded, so one call is all there is per return to the menu.
+* **The base is a mission file, but loading it is not the base screen.**
+  `Missions\Bunker_Light.Mis` loads and gives a world 400 units across, but
+  the pointer at `0x8759D4` that the base cheats need stays null. Whatever
+  makes the bunker a screen rather than a map happens somewhere else, and
+  nothing found so far reaches it from outside.
+
+A mission started this way is playable, and two things about it are different,
+both following from where the call was found.
+
+**Everything on the map is visible.** The minimap shows every unit at once
+rather than only what the party can see - which is the admin mode this project
+had given up on, arrived at sideways. The reason is not established; the
+likeliest is that a mission entered through the network path has no player
+party set, so there is nobody for the sight to be computed for.
+
+**The interface is the multiplayer one.** Escape opens a different menu and
+there is a tall empty panel down the right side of the screen. The player who
+reported it had never played the game's multiplayer and had never seen that
+panel before - which turns the question round. Nothing is missing from it; it
+is the chat and player list a network game has, and in single player it should
+not be there at all.
+
+The network flag is not it, and it took two readings to be sure. The network
+object is the global `0x8739BC` and the byte at `+0x600` says the game is a
+network game; the screen code reads it at `0x4460EC` and `0x4462CD`, and the
+packet handler sets it before loading, which made it the obvious suspect.
+
+In a mission loaded through `loadmission` that byte reads **0** - the game
+already counts itself as single player - and the interface is the network one
+anyway. Clearing it changes nothing and setting it to 1 changes nothing either.
+
+Reading the condition again explains why. The screen code at `0x4460E7` asks
+twice and either answer is enough:
+
+    [0x8739BC]+0x600 != 0                        -> a network game
+    [0x875AA4] != 0 and its byte at +0x84 != 0   -> a network game
+
+Both read **0** in a mission loaded from outside, and the panel is there
+anyway. So neither is it, and that condition - whatever it does decide - is not
+what puts that panel on the screen.
+
+The comparison was made and the difference is real: loaded the game's own way
+there is no panel and Escape gives the campaign menu.
+
+Three explanations have now failed the same way - each explained the symptom,
+each had the code behind it, and the running game said no to all three:
+
+* the network flag at `[0x8739BC]+0x600`. Reads 0; changing it does nothing.
+* the session byte at `[0x875AA4]+0x84`. Reads 0 as well.
+* the 1 the loader pushes at `0x60BCB2`, which reaches `0x5FBF70` and makes it
+  call a method of the loading state with a 2. Poking it to zero for the
+  length of the call changes nothing either.
+
+That is a pattern worth naming: reading the exe keeps producing explanations
+that fit and are wrong, because the interface is assembled from more places
+than any one of them. The way to spend the next hour is not a fourth reading
+but a comparison of the two running games - the same mission entered both
+ways, with the globals and the application object read side by side. What
+differs is then a fact rather than a story.
+
+Both say the same thing: this is the host's way into a mission, and the game
+behaves accordingly. `0x4E83E8` remains the only caller in the exe, so single
+player still gets there some other way. For a test that wants the same mission
+every time, and for looking at a whole mission at once, neither difference is
+in the way.
+
+### Quick save and quick load are methods too
+
+The same door opens them. The mission's message handler at `0x5E9910`
+dispatches `0x424` and `0x425` to two methods of the mission object:
+
+| | |
+|---|---|
+| `0x5F23D0` | quick save, called at `0x5EA11A` |
+| `0x5F26F0` | quick load, called at `0x5EA138` |
+
+Both are thiscall and neither takes anything, and both work on
+`Game\SaveGames\QuickSave.sav` - the same file the game's own keys use. Since
+the mission object can be found, the console window can call them, which is
+what makes a mission repeatable: save at a known spot, run whatever is being
+tried, load it back.
+
+One caveat worth knowing, though it has not bitten. Everything else sent this
+way is a cheat that pokes one value; saving and loading walk the whole world,
+and they do it on a thread of their own while the game's thread carries on -
+the game itself does it from its message loop. In practice both work: saving
+and loading from the console window in a running mission was tried and behaved.
+Asking politely from outside would mean finding that queue and putting a
+message on it, which nothing has needed yet.
+
+The same door leads further: the command tree from the table above could be
+called this way too, which is what the TODO asks for.
+
+---
+
+## A map of the exe, from the game's own trace calls
+
+The game has no RTTI - the twenty type names in it all belong to the standard
+library - so its classes carry no names, which is why every vtable in this
+project had to be found by hand. What it does carry is nearly as useful: each
+trace call passes the file it is written in, and the compiler put those in as
+whole paths off the machine it was built on.
+
+    D:\Sebastian\oldPC\C\Dev\builds\unborn\y2k_source\quellui_mission\
+        MissionMPStatisticPanel.cpp
+
+538 of them, in directories that group the code the way its authors did:
+`quellui_editor` 138 files, `quell` 105, `quellui_bunker` 72,
+`quellui_mission` 35, `quellscript` 23, `network` 6, down to single files for
+the odd corner. A file's name is referenced only from inside that file's own
+functions, so following the references back to the function they sit in says
+which file each function came from - and one file is, near enough, one class.
+
+[tools/map_exe.py](tools/map_exe.py) does that and writes [map.md](map.md); 537
+of the 538 files could be placed. It agrees with everything found by hand:
+`0x5ECA70`, the mission cheat handler, comes out as `Y2KMission.cpp`, which is
+what the log says when a cheat is sent, and the loader at `0x60BC60` turns out
+to belong to `Y2KStart.cpp` - the code of the starting screen, which is why it
+only works from the menu.
+
+Two things it cannot do. A function nobody calls and no table points at is
+invisible, because function starts are found by being referenced. And a file
+whose functions never trace anything cannot be placed at all. It is a map, not
+a decompilation - but the map is what was missing.
+
+---
+
+## Characters: ranks, skills and experience
+
+`TRES_CHARRANKS.trs` holds fourteen ranks, `TRES_CHAR_RANG_0` to `_13`: Rookie,
+Private, Corporal, Sergeant, Master Sergeant, Second Lieutenant, First
+Lieutenant, Captain, Major, Colonel, Brigadier General, Major General,
+Lieutenant General, General. The bunker registers them as a text table at
+`0x52D480`, key 0 to 13.
+
+The rank is shown in the Lab (`LAY_BUNKER_LAZARETT_RANG` = "Rank :") and on the
+soldier tooltip during a mission (`TRES_MISSION_SELECTION_SOLDIER_RANK`). That
+it changes during play is visible from the observer the UI installs — the exe
+carries the string `CMissionSelectionPanel2::OnCharRankChanged`.
+
+Next to the rank a soldier has **two special skill slots**
+(`..._SPECIALSKILL1/2`) out of six: light weapons, heavy weapons, explosives,
+sharpshooter, medic and athletic. The player picks them in the base, and the
+panel says when: *"Your soldiers have proved themselves in battle. They can
+learn new skills now."*
+
+### What the saves show
+
+A character record in a `.sav` starts with the `TRES_` id; counting from the
+byte after its terminating NUL:
+
+| offset | meaning |
+|---|---|
+| `+0x24` | a small number, 0 to 3 across the whole cast - almost certainly the rank |
+| `+0x4E` | current health |
+| `+0x73`, `+0x8D`, `+0xE6` | three counters that only grow for soldiers who go on missions |
+
+Comparing three saves from one campaign (after mission 1, before mission 2,
+during mission 3):
+
+* the three counters grow together and steadily - David Reaves 37 / 29 / 43 →
+  246 / 240 / 252 → 440 / 425 / 446, Boris Kerkowitsch almost identically. The
+  party members who never leave the base (Sorana, Petrow, the Wostows) stay at
+  0 or 2. So this is the experience of taking part in missions, not kills:
+  both fighters gain nearly the same amount.
+* `+0x24` does not move in those saves: David 3, Boris 2, Petrow 1. It matches
+  the backstories (David Reaves is a sergeant in the US army, Petrow is a
+  professor) and it behaves the same way for the NPCs of a mission - a worker 0,
+  a drunk 1, a guard 3.
+
+**What is not established yet**: the rule that turns the counters into a
+promotion, and whether the rank feeds anything but the display. The cheapest way
+to settle both is to watch the field in memory (`tools/scan_memory.py`) across a
+mission and see what moves it.
+
+---
+
+## The mission editor
+
+Reachable from the main menu. The scripting system has 20 trigger types, 42
+events and 21 building blocks — the complete reference is in
+[editor-scripting.md](editor-scripting.md). The console of the game also knows
+commands such as `LoadHeightMap` for importing terrain from a bitmap, so maps
+can be generated by machine; the analysis is in [TODO.md](TODO.md).
