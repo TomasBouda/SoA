@@ -145,3 +145,39 @@ only links to an online readme, and the question was put to the owner of the
 project, who decided it goes in. The kit therefore ships the wrapper and
 installs it into whatever game folder it is pointed at, rather than sending
 people off to download it.
+
+## Building a package from your own copy
+
+The full package cannot be handed out: most of it is the game. What can be
+handed out is **the way to make one**, and `-Generate` is that.
+
+    build-package.ps1 -Variant full -Generate -Source <a retail installation>
+
+It runs the tools that produce our changes against that installation first, then
+packages it. Each of them writes **loose files beside the game's archives**,
+which the engine reads in preference to them - so it adds to an installation and
+takes nothing away, and every tool can undo its own work. `SOA_SOURCE` is how
+they are all pointed at the same place.
+
+The steps, in order: the sounds the game asks for and never shipped, the
+interface with its dark and light pulled apart, the portraits, the object
+textures, the terrain, and the detail textures of the ground - those last are
+cut out of shared sheets rather than standalone, which is why they are a step of
+their own and why leaving them out shows as a difference of 43 files.
+
+**Measured, from a clean install:** 695 object textures in 54.6 seconds and 433
+terrain textures in 40.4 seconds on an RTX 3080 Ti, and the whole run under two
+minutes. The result matches the package built the ordinary way file for file -
+695 textures, 476 terrain, 5 sounds, 54 interface pictures.
+
+`-NoUpscale` leaves the two texture steps out. That is the only part wanting a
+GPU and `torch`, and installing torch is 2.5 GB against 375 MB of textures it
+would save downloading - so for anyone without one it is the wrong trade, and
+everything else still runs.
+
+### Why it is worth having
+
+Somebody who owns the game can now reach the same package we have without being
+given a single file of the game's. That is the whole answer to publishing: the
+kit is on GitHub as a release, the tools are in the repository, and this turns
+one into the other.

@@ -100,7 +100,11 @@ import os
 import shutil
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
-DEFAULT_EXE = os.path.join(ROOT, '_patched', 'soa.exe')
+# Where the game is. `SOA_SOURCE` lets the package builder point every
+# tool at one installation, so a package can be generated from a plain
+# retail copy instead of from this project's own working folder.
+DEFAULT_EXE = os.path.join(os.environ.get('SOA_SOURCE',
+                                          os.path.join(ROOT, '_patched')), 'soa.exe')
 
 
 def h(text):

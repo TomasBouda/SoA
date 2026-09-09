@@ -37,7 +37,17 @@ param(
     [string]$Settings = 'F:\Games\SoA\_sandbox\config\soa-settings.reg',
     [string]$dgVoodoo = 'F:\Games\SoA\_sandbox\tools\dgVoodoo',
     [string]$Out = '',
-    [switch]$Zip
+    [switch]$Zip,
+    # Make the changes rather than expect them already made. Point -Source at a
+    # plain retail installation and the tools that produce the sharper textures,
+    # the repaired sounds and the interface run against it first. This is what
+    # lets somebody build the full package from their own copy of the game,
+    # since none of those files may be handed out - see _research/packaging.md.
+    [switch]$Generate,
+    # The upscale is the only step that wants a GPU and torch. It takes under a
+    # minute on one and installing torch is 2.5 GB, so it can be left out and
+    # everything else still runs.
+    [switch]$NoUpscale
 )
 
 $ErrorActionPreference = 'Stop'
@@ -165,6 +175,41 @@ $busy = @(Get-Process -Name 'Play', 'soa' -ErrorAction SilentlyContinue |
 if ($busy) {
     $what = ($busy | ForEach-Object { '{0} (pid {1})' -f $_.ProcessName, $_.Id }) -join ', '
     throw "$what is running from $Out - close it and run the build again."
+}
+
+# --- 0b. make the changes, when asked ---
+# Each tool writes loose files beside the game's archives, which the engine
+# reads in preference to them - so this adds to an installation and takes
+# nothing away, and each tool can undo its own work. SOA_SOURCE is how they are
+# all pointed at the same place.
+if ($Generate) {
+    if (-not $wantOurChanges) {
+        throw "-Generate only means anything for the full package - the $Variant one carries none of our changes."
+    }
+    Say "generating our changes into $Source"
+    $env:SOA_SOURCE = $Source
+    $steps = @(
+        @{ what = 'the sounds the game asks for and never shipped'; run = @('fix_missing_sounds.py', '--install') },
+        @{ what = 'the interface, with its dark and light pulled apart'; run = @('hud_contrast.py', '--apply') },
+        @{ what = 'the portraits'; run = @('upscale_faces.py', '--apply') }
+    )
+    if (-not $NoUpscale) {
+        $steps += @{ what = 'the object textures'; run = @('upscale_textures.py', 'ALL', '--install') }
+        $steps += @{ what = 'the terrain textures'; run = @('upscale_terrain.py', '--install') }
+        # The details - roads, tracks, grass - are cut out of shared sheets
+        # rather than standalone, so they are a step of their own.
+        $steps += @{ what = 'the detail textures of the ground'; run = @('upscale_details.py', '--install') }
+    }
+    foreach ($step in $steps) {
+        $tool = Join-Path $PSScriptRoot $step.run[0]
+        Say ('  ' + $step.what)
+        & py -3 $tool @($step.run[1..($step.run.Count - 1)]) 2>&1 | ForEach-Object {
+            Write-Host ('        ' + $_) -ForegroundColor DarkGray
+        }
+        if ($LASTEXITCODE -ne 0) { throw ('{0} failed with {1}' -f $step.run[0], $LASTEXITCODE) }
+    }
+    if ($NoUpscale) { Say 'the textures were left alone (-NoUpscale)' 'WARN' }
+    Say 'our changes are in place' 'OK'
 }
 
 $game = Join-Path $Out 'Game'

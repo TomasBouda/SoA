@@ -24,8 +24,14 @@ import sys
 import zipfile
 import zlib
 
-UBN = r'..\_patched\sounds.ubn'
-DEFAULT_OUT = r'..\_patched'
+# Where the game is. `SOA_SOURCE` lets the package builder point every
+# tool at one installation, so a package can be generated from a plain
+# retail copy instead of from this project's own working folder.
+SOURCE = os.environ.get('SOA_SOURCE',
+                        os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     '..', '..', '_patched'))
+UBN = os.path.join(SOURCE, 'sounds.ubn')
+DEFAULT_OUT = SOURCE
 NEEDLE = b'SchussTreffer_K\x94rper'
 
 

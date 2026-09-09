@@ -48,8 +48,11 @@ from PIL import Image, ImageDraw
 import esrgan
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
-UBN = os.path.join(ROOT, '_patched', 'terrain.ubn')
-GAME = os.path.join(ROOT, '_patched', 'terrain')
+# Where the game is. `SOA_SOURCE` lets the package builder point every tool at
+# one installation, so a package can be generated from a plain retail copy.
+SOURCE = os.environ.get('SOA_SOURCE', os.path.join(ROOT, '_patched'))
+UBN = os.path.join(SOURCE, 'terrain.ubn')
+GAME = os.path.join(SOURCE, 'terrain')
 WORK = os.path.join(ROOT, '_research', '_upscale_details')
 
 SCALE = 2

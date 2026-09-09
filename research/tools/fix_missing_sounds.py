@@ -30,9 +30,17 @@ import shutil
 import zipfile
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
-UBN = os.path.join(ROOT, '_patched', 'sounds.ubn')
-TARGETS = [os.path.join(ROOT, '_patched'),
-           os.path.join(os.path.dirname(ROOT), 'SoA-Package', 'Game')]
+# Where the game is. `SOA_SOURCE` lets the package builder point every
+# tool at one installation, so a package can be generated from a plain
+# retail copy instead of from this project's own working folder.
+SOURCE = os.environ.get('SOA_SOURCE', os.path.join(ROOT, '_patched'))
+UBN = os.path.join(SOURCE, 'sounds.ubn')
+# The built package too, but only when nobody named a source: with SOA_SOURCE
+# set the caller is building somewhere else and writing into this machine's own
+# package would be a surprise.
+TARGETS = [SOURCE]
+if 'SOA_SOURCE' not in os.environ:
+    TARGETS.append(os.path.join(os.path.dirname(ROOT), 'SoA-Package', 'Game'))
 
 # Loose files are looked up in the same structure the archive has. Verified
 # earlier with the body hit sounds, which live in Sounds/InGame/weapons.

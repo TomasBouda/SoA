@@ -410,21 +410,25 @@ the console window can now `quicksave` and `quickload`
 
 ## Publishing
 
-- [ ] **Put part of the project on GitHub, publicly.** Not all of it: the
-      package and what has been worked out about the game are the parts worth
-      sharing, and the game's own data is not ours to hand out. The kit already
-      draws that line - a launcher without the game - so the question is which
-      of `_research` goes with it. The documents are our own writing and the
-      tools are our own code; the archives, the extracted pictures and the
-      catalog are derived from the game and want deciding one at a time.
-      [packaging.md](packaging.md) has the reasoning that already exists about
-      what may be handed out.
-- [ ] **A landing page, published from the repository.** One page, to show the
-      project off: what it is, what it fixes, what the tools can do, with the
-      pictures that make the case - the upscaled portraits before and after, a
-      model out of `diff3d.py`, the Czech interface. GitHub Pages serves a
-      single file from the repository, so it can live beside the rest and go out
-      with a push.
+- [x] ~~**Put part of the project on GitHub, publicly.**~~ **Done** -
+      [github.com/TomasBouda/SoA](https://github.com/TomasBouda/SoA), a separate
+      repository rather than a branch, so nothing of the game's can be pushed to
+      it by accident. 261 files: the documents, the tools, the launcher, the
+      translation and the catalog. `_patched` and the saves stayed home.
+
+- [x] ~~**A landing page, published from the repository.**~~ In `docs/`, one
+      file, with the rendered models and the portraits before and after. GitHub
+      Pages has to be switched on in the repository settings - Settings, Pages,
+      deploy from `main` and the `/docs` folder.
+
+- [x] ~~**Publish the kit.**~~ Release `v1.16.3`, 2.8 MB, the launcher with no
+      game in it.
+
+- [ ] **An extras archive for people without a GPU.** The upscale is the only
+      step that wants torch, and installing torch is 2.5 GB against the 375 MB
+      of textures it would save downloading. Delta patches against the game's
+      own files - the form the mod communities use, useless without a copy of
+      the game - would close that. Worth doing only if somebody asks.
 
 ## Content and looks
 
