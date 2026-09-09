@@ -52,9 +52,6 @@ figure{margin:0}
 figcaption{color:var(--dim);font-size:13px;margin-top:8px}
 .shots{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-top:24px}
 .shots img{width:100%;display:block;border-radius:9px;border:1px solid var(--line);background:var(--sunk)}
-.split{display:grid;gap:34px;grid-template-columns:1fr 1fr;align-items:center}
-@media(max-width:760px){.split{grid-template-columns:1fr}}
-.split img{width:100%;display:block;border-radius:9px;border:1px solid var(--line);background:var(--sunk)}
 
 code{background:var(--sunk);border:1px solid var(--line);border-radius:4px;
      padding:1px 6px;font-family:ui-monospace,Consolas,monospace;font-size:.88em}
@@ -98,28 +95,6 @@ footer{padding:44px 0 64px;color:var(--dim);font-size:14px}
        install - the launcher is one exe.</p>
   </div>
 </header>
-
-<section>
-  <div class="wrap">
-    <h2>The portraits are the thing you notice</h2>
-    <div class="split">
-      <figure>
-        <img src="img/portraits.png" alt="Three soldier portraits, before and after">
-        <figcaption>The same three faces, as the game drew them and after.</figcaption>
-      </figure>
-      <div>
-        <h3>Thirty-two pixels by forty-eight</h3>
-        <p class="dim">That is how big a face is in the game's own art, and it is drawn at
-          75 by 94 - which is why every portrait you have ever seen in this game was a
-          mosaic. They are the picture the game blows up the most, so they are the picture
-          that gains the most.</p>
-        <p class="dim">The object and ground textures are in there too, all 1171 of them.
-          Expect less from those: the engine draws a smaller copy at normal camera
-          distance, so they tell when you come down low rather than everywhere.</p>
-      </div>
-    </div>
-  </div>
-</section>
 
 <section>
   <div class="wrap">
