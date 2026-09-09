@@ -1,0 +1,55 @@
+<Configuration>
+  <!-- Testing the published kit the way a stranger meets it.
+
+       This is not the sandbox for playing (SoA.wsb). Nothing of the project is
+       mapped in - no tools, no Python, no dgVoodoo already beside the game, no
+       registry settings. A clean Windows, a plain installation of the game, and
+       the zip exactly as it comes off the release page. If the kit needs
+       anything that is only on the development machine, this is where it shows.
+
+       The game folder was mapped read only at first, so that the test could not
+       change the copy it was given. It is writable now by request; see the note
+       on the mapping below for what that costs. -->
+
+  <!-- On, by request. The playing sandbox keeps it off - the game has not
+       needed it since the GameSpy servers died in 2014 - and this one does not
+       need it either, so what it is for is the tester: fetching something into
+       the sandbox, or watching what the launcher does with a network available.
+
+       One consequence worth knowing. The playing sandbox writes the dead
+       GameSpy hosts into `hosts` because otherwise the game's version check at
+       startup sits waiting for a timeout. This sandbox deliberately does not,
+       since a stranger's machine would not have it either - so if the game
+       takes half a minute to come up, that is what it is doing. -->
+  <Networking>Enable</Networking>
+  <ClipboardRedirection>Enable</ClipboardRedirection>
+  <AudioInput>Disable</AudioInput>
+  <VideoInput>Disable</VideoInput>
+  <PrinterRedirection>Disable</PrinterRedirection>
+
+  <VGpu>Enable</VGpu>
+  <MemoryInMB>8192</MemoryInMB>
+  <ProtectedClient>Disable</ProtectedClient>
+
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>F:\Games\SoA-KitTest</HostFolder>
+      <SandboxFolder>C:\Given</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+    <!-- Writable, by request. It is the host's clean installation, so anything
+         written here outlives the sandbox and the next run no longer starts
+         from a clean one - which is exactly how the last clean copy stopped
+         being clean. Rebuilding it is two minutes:
+             build-package.ps1 -Variant vanilla -->
+    <MappedFolder>
+      <HostFolder>F:\Games\SoA-Vanilla\Game</HostFolder>
+      <SandboxFolder>C:\Retail</SandboxFolder>
+      <ReadOnly>false</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+
+  <LogonCommand>
+    <Command>C:\Given\kit-test.cmd</Command>
+  </LogonCommand>
+</Configuration>
