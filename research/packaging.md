@@ -181,3 +181,52 @@ Somebody who owns the game can now reach the same package we have without being
 given a single file of the game's. That is the whole answer to publishing: the
 kit is on GitHub as a release, the tools are in the repository, and this turns
 one into the other.
+
+## Testing the release the way a stranger meets it
+
+`_sandbox/KitTest.wsb` is a second sandbox, and deliberately not the one for
+playing. **Nothing of the project is mapped into it** - no tools, no Python, no
+dgVoodoo already beside the game, no registry settings. A clean Windows, a plain
+installation, and the zip exactly as it comes off the release page, checked
+against the published SHA-256 so it is the file a stranger downloads and not a
+local copy of it.
+
+`_sandbox/kit-test.cmd` lays it out and then gets out of the way: it installs
+nothing and configures nothing, because anything it did for the kit would be a
+thing the test no longer covers. Two details are deliberate:
+
+* The game is copied to the local disk rather than played from the mapped
+  folder - the game writes beside its own exe and every write through the
+  sandbox's redirected filesystem is slow enough to freeze it while saving.
+* **The wrapper is deleted from that copy.** The vanilla package carries
+  dgVoodoo inside its Game folder, because without a wrapper there is no game on
+  Windows 11 at all - but deploying it is one of the things the launcher is
+  supposed to do, and finding it already there would quietly skip the test.
+
+The order to try things in is printed when it starts: the launcher with no game
+to find, then **Find the game...**, then the windows that work without the game
+running, then Play, then the ones that need it running.
+
+## What is published, and where the line runs
+
+Two downloads on the release, and the difference between them is the whole
+argument about what may be handed out.
+
+**The kit, 2.8 MB.** The launcher and the wrapper. Every byte is ours bar
+dgVoodoo and the catalog, and it needs a copy of the game to be any use.
+
+**The textures, 316 MB, optional.** 1230 loose files - the enlarged object and
+ground textures, the interface, the portraits and the five missing sounds. These
+*are* derived from the game's own art, and they are published anyway on the
+reasoning that a texture pack is not a substitute for the game: it needs one,
+and it is the form modding has taken for twenty years. That is a decision, not a
+rule, and it was the owner's to make.
+
+**The game is not published and will not be.** That is the line: things that
+need the game may go out, the thing itself may not.
+
+Delta patches against the originals were the obvious cleaner artifact - they
+carry none of the original and are useless without it - and they were dropped
+after being thought through rather than after being built. An enlarged picture
+is a different bitstream from the one it came from, so the delta comes out
+about the size of the result and buys nothing but the argument.

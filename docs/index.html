@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Soldiers of Anarchy on Windows 11</title>
-<meta name="description" content="Getting a 2002 squad tactics game to run and look well on a modern machine, and taking its data apart far enough to change things.">
+<title>Play Soldiers of Anarchy on Windows 11</title>
+<meta name="description" content="A launcher and a sharper set of textures that make the 2002 squad tactics game run properly on a modern machine. Two downloads, and the copy of the game you already own.">
 <style>
 :root{
   --bg:#191b20; --panel:#23262e; --sunk:#14161a; --line:#33384a;
@@ -12,56 +12,57 @@
   color-scheme:dark;
 }
 *{box-sizing:border-box}
-body{
-  margin:0; background:var(--bg); color:var(--text);
-  font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
-}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
 a{color:var(--accent)}
 a:hover{color:#e0bd66}
-.wrap{max-width:940px;margin:0 auto;padding:0 24px}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px}
 
-header{border-bottom:1px solid var(--line);padding:72px 0 56px;background:
-  radial-gradient(1000px 380px at 50% -80px,rgba(200,162,74,.10),transparent)}
-h1{margin:0 0 6px;font-size:38px;line-height:1.15;letter-spacing:-.02em;font-weight:650}
-.sub{color:var(--accent);font-size:15px;letter-spacing:.10em;text-transform:uppercase;margin:0 0 22px}
-.lede{color:var(--dim);font-size:19px;max-width:660px;margin:0}
-.actions{margin-top:30px;display:flex;gap:10px;flex-wrap:wrap}
-.btn{display:inline-block;padding:10px 18px;border-radius:7px;border:1px solid var(--line);
-     background:var(--panel);color:var(--text);text-decoration:none;font-size:15px}
-.btn:hover{border-color:var(--accent);color:var(--text)}
-.btn.first{background:var(--accent);border-color:var(--accent);color:#20180a;font-weight:600}
-.btn.first:hover{background:#e0bd66;color:#20180a}
+header{border-bottom:1px solid var(--line);padding:76px 0 20px;
+  background:radial-gradient(1100px 420px at 50% -100px,rgba(200,162,74,.12),transparent)}
+.sub{color:var(--accent);font-size:14px;letter-spacing:.10em;text-transform:uppercase;margin:0 0 10px}
+h1{margin:0 0 14px;font-size:42px;line-height:1.12;letter-spacing:-.02em;font-weight:650}
+.lede{color:var(--dim);font-size:19px;max-width:680px;margin:0}
+
+.get{display:grid;gap:14px;grid-template-columns:1fr 1fr;margin:34px 0 8px}
+@media(max-width:720px){.get{grid-template-columns:1fr}h1{font-size:31px}}
+.dl{display:block;text-decoration:none;background:var(--panel);border:1px solid var(--line);
+    border-radius:11px;padding:20px 22px;color:var(--text)}
+.dl:hover{border-color:var(--accent);color:var(--text)}
+.dl.main{background:linear-gradient(180deg,rgba(200,162,74,.14),rgba(200,162,74,.05));
+         border-color:rgba(200,162,74,.55)}
+.dl b{display:block;font-size:19px;margin-bottom:2px}
+.dl .size{color:var(--accent);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase}
+.dl p{margin:9px 0 0;color:var(--dim);font-size:14.5px;line-height:1.5}
+.need{color:var(--dim);font-size:14px;margin:10px 0 0;padding-bottom:44px}
+.need b{color:var(--text);font-weight:600}
 
 section{padding:56px 0;border-bottom:1px solid var(--line)}
 h2{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);
    margin:0 0 26px;font-weight:600}
-h3{font-size:20px;margin:0 0 8px;font-weight:600}
+h3{font-size:19px;margin:0 0 8px;font-weight:600}
 p{margin:0 0 14px}
 .dim{color:var(--dim)}
 
-.cards{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.cards{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(258px,1fr))}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px 22px}
 .card p{margin:0;color:var(--dim);font-size:15px}
 
 figure{margin:0}
-.shots{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
-.shots img{width:100%;display:block;border-radius:9px;border:1px solid var(--line);background:var(--sunk)}
 figcaption{color:var(--dim);font-size:13px;margin-top:8px}
-.wide img{width:100%;display:block;border-radius:9px;border:1px solid var(--line)}
+.shots{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));margin-top:24px}
+.shots img{width:100%;display:block;border-radius:9px;border:1px solid var(--line);background:var(--sunk)}
+.split{display:grid;gap:34px;grid-template-columns:1fr 1fr;align-items:center}
+@media(max-width:760px){.split{grid-template-columns:1fr}}
+.split img{width:100%;display:block;border-radius:9px;border:1px solid var(--line);background:var(--sunk)}
 
-.split{display:grid;gap:34px;grid-template-columns:1.15fr .85fr;align-items:start}
-@media(max-width:760px){.split{grid-template-columns:1fr}h1{font-size:30px}}
-
-.quote{border-left:2px solid var(--accent);padding:2px 0 2px 18px;color:var(--dim);
-       font-size:15px;margin:20px 0 0}
 code{background:var(--sunk);border:1px solid var(--line);border-radius:4px;
      padding:1px 6px;font-family:ui-monospace,Consolas,monospace;font-size:.88em}
 pre{background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:14px 16px;
-    overflow-x:auto;font-family:ui-monospace,Consolas,monospace;font-size:13.5px;line-height:1.55;
+    overflow-x:auto;font-family:ui-monospace,Consolas,monospace;font-size:13.5px;
     color:var(--dim);margin:0}
-pre b{color:var(--text);font-weight:600}
 ul.plain{list-style:none;padding:0;margin:0}
-ul.plain li{padding:9px 0;border-bottom:1px solid var(--line);color:var(--dim);font-size:15px}
+ul.plain li{padding:10px 0;border-bottom:1px solid var(--line);color:var(--dim);font-size:15px}
 ul.plain li:last-child{border-bottom:0}
 ul.plain b{color:var(--text);font-weight:600}
 footer{padding:44px 0 64px;color:var(--dim);font-size:14px}
@@ -72,137 +73,121 @@ footer{padding:44px 0 64px;color:var(--dim);font-size:14px}
 <header>
   <div class="wrap">
     <p class="sub">Soldiers of Anarchy &middot; 2002</p>
-    <h1>Getting a twenty-year-old game<br>to run, and taking it apart</h1>
-    <p class="lede">It still starts on a modern machine, but only just: it wants a display
-      mode nobody has any more, its interface was drawn for 800&nbsp;by&nbsp;600, and a good
-      deal of what it can do was never written down anywhere. So we wrote it down.</p>
-    <div class="actions">
-      <a class="btn first" href="https://github.com/TomasBouda/SoA">The repository</a>
-      <a class="btn" href="https://github.com/TomasBouda/SoA/blob/main/research/models.md">The model format</a>
-      <a class="btn" href="https://github.com/TomasBouda/SoA/blob/main/research/architecture.md">How the engine works</a>
+    <h1>Play it properly on Windows 11</h1>
+    <p class="lede">On a modern machine it barely starts: it asks for a display mode nobody
+      has any more, and if it does come up it is a small blurry window with an interface
+      drawn for 800&nbsp;by&nbsp;600. These two downloads fix that.</p>
+
+    <div class="get">
+      <a class="dl main" href="https://github.com/TomasBouda/SoA/releases/latest">
+        <b>The launcher</b><span class="size">2.8 MB &middot; start here</span>
+        <p>Start <code>Play.exe</code>, point it at your <code>soa.exe</code> once, press
+           Play. It puts the graphics wrapper in place, sets the game up and starts it full
+           screen - and brings a catalog, a save editor, a console and a model browser with
+           it.</p>
+      </a>
+      <a class="dl" href="https://github.com/TomasBouda/SoA/releases/latest">
+        <b>The textures</b><span class="size">316 MB &middot; optional</span>
+        <p>1230 sharper pictures the game reads instead of its own - every object and ground
+           texture enlarged, the interface, and the portraits, which gain the most.
+           Unzip beside <code>soa.exe</code>; delete four folders to undo it.</p>
+      </a>
     </div>
+    <p class="need"><b>You need your own copy of the game</b>, patched to 1.1.2.178.
+       Neither download contains it and neither can replace it. Windows 10 or 11, nothing to
+       install - the launcher is one exe.</p>
   </div>
 </header>
 
 <section>
   <div class="wrap">
-    <h2>The models</h2>
+    <h2>The portraits are the thing you notice</h2>
     <div class="split">
-      <div>
-        <h3>1253 files nobody had described</h3>
-        <p class="dim"><code>objects.ubn</code> holds every soldier, vehicle, building and tree
-          the game draws, in a format called <code>.diff3D</code> that is documented nowhere.
-          It turned out to be the same serialiser the save games use, with one byte changed.</p>
-        <p class="dim"><b>1241 of them now read</b> - with their textures, and with every part
-          in its place. The twelve that do not are camera paths and have no geometry in them
-          at all.</p>
-        <p class="dim">Every file still carries the path of the <code>.ASE</code> its authors
-          exported it from, so the modellers' own directory layout is in there:
-          <code>C:\proof\units\rager\rager_h.ASE</code>.</p>
-        <p class="quote">Getting the parts into the right places took three wrong answers first.
-          The file carries a tree, and it is the last thing in it - a table of chunks written
-          depth first, where a field we had read as a flag is a child count. A vehicle's wheels
-          hang off the root and its doors off the body, so a door takes three matrices and a
-          wheel takes one; no rule about <em>which</em> parts to transform could ever have got
-          both right.</p>
-      </div>
       <figure>
-        <img src="img/rager_h.png" alt="A pickup truck rendered from the game's own model data" style="width:100%;border-radius:9px;border:1px solid var(--line)">
-        <figcaption>Read straight out of <code>objects.ubn</code> and drawn by
-          <code>diff3d.py</code>, textures and all.</figcaption>
+        <img src="img/portraits.png" alt="Three soldier portraits, before and after">
+        <figcaption>The same three faces, as the game drew them and after.</figcaption>
       </figure>
+      <div>
+        <h3>Thirty-two pixels by forty-eight</h3>
+        <p class="dim">That is how big a face is in the game's own art, and it is drawn at
+          75 by 94 - which is why every portrait you have ever seen in this game was a
+          mosaic. They are the picture the game blows up the most, so they are the picture
+          that gains the most.</p>
+        <p class="dim">The object and ground textures are in there too, all 1171 of them.
+          Expect less from those: the engine draws a smaller copy at normal camera
+          distance, so they tell when you come down low rather than everywhere.</p>
+      </div>
     </div>
-    <div class="shots" style="margin-top:26px">
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>What comes with the launcher</h2>
+    <div class="cards">
+      <div class="card"><h3>It just starts</h3><p>The wrapper, the display mode, the
+        settings, the keys on WASD. Done for you instead of read off a forum thread.</p></div>
+      <div class="card"><h3>Saves you can edit</h3><p>What is in a save without loading it,
+        and what each soldier carries - the pack, the weapon, the ammunition, the vest -
+        swapped for anything in the game.</p></div>
+      <div class="card"><h3>Every item, described</h3><p>The catalog, out of the game's own
+        data: what each weapon and vehicle is, what it costs, what it is worth.</p></div>
+      <div class="card"><h3>A console, from your phone</h3><p>The game's log and its cheats,
+        drivable from a phone on the same network - because leaving full screen to type
+        something loses the window.</p></div>
+      <div class="card"><h3>The mission map</h3><p>The map of what you are playing, read out
+        of the game's memory while it runs.</p></div>
+      <div class="card"><h3>All 1253 models</h3><p>Every soldier, vehicle, building and tree
+        the game draws, with their textures, turned under the mouse.</p></div>
+    </div>
+    <div class="shots">
+      <figure><img src="img/rager_h.png" alt="A pickup truck from the game"><figcaption>Rager</figcaption></figure>
       <figure><img src="img/bm21_h.png" alt="A BM-21 Grad rocket truck"><figcaption>BM-21 Grad</figcaption></figure>
       <figure><img src="img/bmp1_h.png" alt="A BMP-1 armoured vehicle"><figcaption>BMP-1</figcaption></figure>
-      <figure><img src="img/ak74.png" alt="An AK-74 rifle"><figcaption>AK-74, with the right sheet on the stock</figcaption></figure>
+      <figure><img src="img/ak74.png" alt="An AK-74 rifle"><figcaption>AK-74</figcaption></figure>
     </div>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <h2>The portraits</h2>
-    <div class="split">
-      <figure class="wide">
-        <img src="img/portraits.png" alt="Three soldier portraits before and after upscaling">
-        <figcaption>The same three faces, as the game drew them and after
-          <code>upscale_faces.py</code>.</figcaption>
-      </figure>
-      <div>
-        <h3>Thirty-two by forty-eight</h3>
-        <p class="dim">That is how big a face is in the sheet. On a 1920 by 1080 screen the
-          game blows it up to 75 by 94, which is why every portrait was a mosaic.</p>
-        <p class="dim">The measurement mattered more than the model did. An earlier note said
-          the extra size was thrown away; reading the loader said otherwise, and a doubled
-          sheet does survive as far as the screen.</p>
-        <p class="dim">The right model turned out to be the anime one - a photographic
-          upscaler invents skin texture that was never there.</p>
-      </div>
-    </div>
+    <h2>Rather make the textures yourself?</h2>
+    <p class="dim">The tools that made them are in the repository and they run against your
+      own copy of the game, so you need not take a 316 MB download on trust:</p>
+    <pre>build-package.ps1 -Variant full -Generate -Source "C:\your\game"</pre>
+    <p class="dim" style="margin-top:16px">Under two minutes on a graphics card. It wants
+      Python and torch, and torch is a 2.5 GB install - which is the only reason the
+      download exists at all.</p>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <h2>The launcher</h2>
-    <div class="cards">
-      <div class="card"><h3>Console</h3><p>The game's own log, and cheats sent into the running
-        process. Drivable from a phone on the same network, because leaving full screen loses
-        the window.</p></div>
-      <div class="card"><h3>Map</h3><p>The running mission's map, read out of the game's memory
-        while it plays.</p></div>
-      <div class="card"><h3>Saves</h3><p>What is in a save without loading it - and what each
-        soldier carries, which can be swapped for anything in the catalog.</p></div>
-      <div class="card"><h3>Models</h3><p>All 1253 of them, drawn with their textures and turned
-        under the mouse. WPF's own 3D, so the package gained code and no dependency.</p></div>
-      <div class="card"><h3>Catalog</h3><p>Every item and vehicle with what the game says about
-        it, built out of the game's own data.</p></div>
-      <div class="card"><h3>One package</h3><p><code>build-package.ps1</code> turns an installed
-        copy into a folder that runs: the wrapper, the settings, the fixes, and the launcher
-        compiled by <code>csc</code> with no project file.</p></div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <h2>The rest of it</h2>
+    <h2>How any of this was possible</h2>
+    <p class="dim">Getting the game this far meant taking a good deal of it apart, and it is
+      all written down.</p>
     <ul class="plain">
-      <li><b>Czech, with no patch to the executable at all.</b> The text is UTF-8 - which took
-        a while to believe, after a first attempt wrote code page 1250 and every accented
-        letter came back a question mark. The game's own German gave it away.</li>
-      <li><b>Editing a save.</b> What a soldier carries is four slots - the pack, the weapon,
-        ammunition, the vest - inside the record that opens with his <code>TRES_</code> key.
-        Finding it took a false positive that looked like success for two days.</li>
-      <li><b>The sound.</b> Files the game asks for and never shipped, put back from what is
-        in the archives.</li>
-      <li><b>A map of the executable.</b> 538 source file names survive in it, so a function
-        can be traced back to the file its authors wrote it in.</li>
+      <li><b>The 3D models.</b> 1253 files in a format documented nowhere. They read now -
+        with their textures, and with every part in its place, which took three wrong
+        answers first. <a href="https://github.com/TomasBouda/SoA/blob/main/research/models.md">models.md</a></li>
+      <li><b>The saves.</b> What a soldier carries is four slots inside his own record.
+        Finding it took a false positive that looked like success for two days.
+        <a href="https://github.com/TomasBouda/SoA/blob/main/research/saves.md">saves.md</a></li>
+      <li><b>The engine.</b> 538 source file names survive inside the executable, so a
+        function can be traced back to the file its authors wrote it in.
+        <a href="https://github.com/TomasBouda/SoA/blob/main/research/architecture.md">architecture.md</a></li>
+      <li><b>What did not work.</b> As much of
+        <a href="https://github.com/TomasBouda/SoA/blob/main/research/TODO.md">TODO.md</a>
+        records something tried that failed, and why it looked as though it had worked, as
+        records what is still open.</li>
     </ul>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <h2>What is in the repository</h2>
-    <p class="dim">Our own writing and our own code. <b>The game is not in it</b> - no archives,
-      no executable, no data. The tools work against a copy you install yourself.</p>
-    <pre>research/          <b>what was worked out, one document per subject</b>
-research/tools/    <b>the tools, in Python</b>
-research/tools/launcher/   <b>the launcher, C# against WPF</b>
-analysis/          <b>readers for the installation disc and the executable</b></pre>
-    <p class="dim" style="margin-top:18px">The most useful document is probably
-      <a href="https://github.com/TomasBouda/SoA/blob/main/research/TODO.md">TODO.md</a>, and
-      not for what is still open. A good number of its entries record something that was tried
-      and did not work, and why it looked as though it had.</p>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    <p>Soldiers of Anarchy is by Silver Style Entertainment. This project is not connected with
-      them and ships none of their work; it needs a copy of the game you already own.</p>
+    <p>Soldiers of Anarchy is by Silver Style Entertainment. This project is not connected
+      with them and ships none of their work: it needs a copy of the game you already own.</p>
     <p><a href="https://github.com/TomasBouda/SoA">github.com/TomasBouda/SoA</a></p>
   </div>
 </footer>

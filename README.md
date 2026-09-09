@@ -1,64 +1,78 @@
-# Soldiers of Anarchy on Windows 11
+# Play Soldiers of Anarchy on Windows 11
 
-*Soldiers of Anarchy* is a squad tactics game from 2002. It still runs on a
-modern machine, but only just: it wants a display mode nobody has any more, its
-interface was drawn for 800 by 600, and a good deal of what it can do was never
-written down anywhere.
+*Soldiers of Anarchy* is a squad tactics game from 2002. On a modern machine it
+barely starts: it asks for a display mode nobody has any more, and if it does
+come up it is a small blurry window with the interface drawn for 800 by 600.
 
-This is the work of getting it to run and look well, and of taking its data
-apart far enough to change things. **The game itself is not here** - none of its
-files, none of its archives, no executable. What is here is our own writing and
-our own code, which needs a copy of the game you already own.
+This makes it play properly. **Two downloads, and a copy of the game you already
+own.**
 
-## What has come out of it
-
-**A launcher.** One window that builds and starts a clean installation, with a
-console into the running game, a map of the running mission read out of memory,
-a browser for the saves that can change what a soldier carries, and a browser
-for the game's 3D models.
-
-**The model format, read.** `objects.ubn` holds 1253 `.diff3D` files - every
-soldier, vehicle, building and tree the game draws - and nothing about the
-format was documented anywhere. 1241 of them now come out with their textures
-and their parts in the right places. [models.md](research/models.md) is the
-whole of it, including three readings that were wrong and why each looked right.
-
-**The saves, enough to edit them.** What a soldier carries is four slots inside
-the record that opens with his `TRES_` key, and the launcher will swap one item
-for another. [saves.md](research/saves.md) - including the false positive that
-made an earlier answer look correct for two days.
-
-**Czech, with no patch to the executable at all.** The text is UTF-8, which took
-a while to believe. [translation.md](research/translation.md).
-
-**Sharper portraits.** A face is 32 by 48 pixels and the game draws it at 75 by
-94, which is why a portrait was a mosaic. [upscale.md](research/upscale.md).
-
-## What is in here
+## [→ Download](https://github.com/TomasBouda/SoA/releases/latest)
 
 | | |
 |---|---|
-| [research/](research) | What was worked out about the game, one document per subject |
-| [research/tools/](research/tools) | The tools, in Python |
-| [research/tools/launcher/](research/tools/launcher) | The launcher, C# against WPF, built by `csc` with no project file |
-| [research/tools/build-package.ps1](research/tools/build-package.ps1) | Builds a package out of an installed game |
-| [research/translation/](research/translation) | The Czech translation |
-| [analysis/](analysis) | Readers for the installation disc and the executable |
+| **SoA-Kit** &middot; 2.8 MB | The launcher. Start `Play.exe`, point it at your `soa.exe` once, press Play. It puts the graphics wrapper in place, sets the game up and starts it full screen. |
+| **SoA-Textures** &middot; 316 MB, optional | 1230 sharper pictures the game reads instead of its own. Unzip into the folder with `soa.exe`; delete four folders to undo it. |
 
-The catalog - `catalog.txt` and its pictures - is derived from the game's own
-data and is here because the launcher is no use without it. Everything else in
-this repository was written for this project.
+Neither contains the game and neither can replace it.
 
-## What is deliberately not in here
+## What the launcher gives you
 
-The game. Its archives, its executable, the upscaled textures, the repaired
-sounds and the saves all live in the private working repository, because they
-are the game's and not ours to hand out. `build-package.ps1` makes a package
-from a copy you install yourself.
+**It makes the game start.** The wrapper, the display mode, the settings, the
+keys on WASD - all of it done for you instead of read off a forum thread.
 
-## Where to start reading
+**Sharper portraits.** A soldier's face is 32 by 48 pixels and the game draws it
+at 75 by 94, which is why every portrait was a mosaic. In the textures download.
 
-[research/architecture.md](research/architecture.md) is how the engine is put
-together. [research/TODO.md](research/TODO.md) is what is still open and what
-has already been tried, which is the more useful half - a good number of entries
-are there to stop somebody spending an afternoon the way we did.
+**Five sounds that were missing.** The game asks for them and they were never on
+the disc. Put back from what is in its own archives.
+
+**A save browser that edits.** See what is in a save without loading it, and
+swap what a soldier carries for anything in the game - four slots: the pack, the
+weapon, the ammunition, the vest.
+
+**Every item in the game, described.** The catalog, built out of the game's own
+data: what each weapon and vehicle is, what it costs, what it is worth.
+
+**A console into the running game.** Its own log and its own cheats, and it can
+be driven from your phone on the same network - because leaving full screen to
+type something loses the window.
+
+**The map of the mission you are playing**, read out of the game's memory.
+
+**All 1253 3D models**, drawn with their textures and turned under the mouse.
+
+## What you need
+
+A copy of the game, patched to **1.1.2.178** (the last official patch). The
+launcher still starts on another build and says plainly which of its windows
+will not work rather than pretending.
+
+Windows 10 or 11. Nothing to install - the launcher is one exe.
+
+## Make the textures yourself instead
+
+If you would rather not take a 316 MB download on trust, the tools that made it
+are here and they run against your own copy:
+
+    build-package.ps1 -Variant full -Generate -Source "C:\your\game"
+
+Under two minutes on a graphics card. It wants Python and torch, which is the
+only reason the download exists at all.
+
+## The rest of this repository
+
+Getting the game to this point meant taking a good deal of it apart, and that is
+written down: [what is in the models](research/models.md), which nobody had
+described - 1253 files, now readable with their textures and their parts in the
+right places - [what is in a save](research/saves.md), [how the engine is put
+together](research/architecture.md), and
+[how it was translated](research/translation.md) with no patch to the executable
+at all.
+
+[research/TODO.md](research/TODO.md) is the more useful half: as much of it
+records something that was tried and did not work, and why it looked as though
+it had, as records what is still open.
+
+**The game is not in this repository** - no archives, no executable, no data.
+The tools work against a copy you install yourself.

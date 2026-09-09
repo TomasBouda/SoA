@@ -424,11 +424,13 @@ the console window can now `quicksave` and `quickload`
 - [x] ~~**Publish the kit.**~~ Release `v1.16.3`, 2.8 MB, the launcher with no
       game in it.
 
-- [ ] **An extras archive for people without a GPU.** The upscale is the only
-      step that wants torch, and installing torch is 2.5 GB against the 375 MB
-      of textures it would save downloading. Delta patches against the game's
-      own files - the form the mod communities use, useless without a copy of
-      the game - would close that. Worth doing only if somebody asks.
+- [x] ~~**An extras archive for people without a GPU.**~~ `SoA-Textures-1.16.3.zip`
+      on the release, 316 MB, 1230 loose files. Plainly, not as delta patches:
+      the deltas were the cleaner artifact in principle but save nothing, since
+      an enlarged picture is a different bitstream from the one it came from.
+      The pack needs the game, is no substitute for it, and the readme inside it
+      says so and points at `-Generate` for anybody who would rather make their
+      own than take it on trust.
 
 ## Content and looks
 
