@@ -50,6 +50,10 @@ tools/ui_inject.py         the mailbox: what is under a screen point, orders, th
 tools/menu_bot.py          clicks the game from its menus into a saved game
 tools/mission_cheat.py     the mission cheats (endlessmunition ...) and loading a save, with no menu
 tools/add_sounds.py        puts sounds of our own into sounds.ubn, by hand, so the game finds them by name
+tools/mod_m34.py           the M34 grenade's data: two records, four texts, an icon, as loose files
+tools/m34_icon.py          draws the M34's inventory icon into the one free hole of the icon sheets
+tools/m34_patch.py         the M34's bytes: every table and switch in the exe that names the grenades
+tools/probe.py             a hit tracer for the running game: which functions ran, with what
 tools/launch_game.ps1      starts the game through the launcher, windowed, and waits for soa.exe
 tools/radio_clip.py        makes the radio call the launcher plays with it
 tools/decode_error.py      translates the HRESULT codes from tracefile.log

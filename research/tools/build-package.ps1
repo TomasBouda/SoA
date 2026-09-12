@@ -145,7 +145,10 @@ $stateFile = Join-Path $PSScriptRoot 'version.json'
 $state = if (Test-Path $stateFile) { Get-Content $stateFile -Raw | ConvertFrom-Json }
          else { [pscustomobject]@{ version = '1.0.0'; dataFingerprint = ''; launcherFingerprint = '' } }
 
-$dataFingerprint = Fingerprint @($Source)
+# The M34's data files are generated into the package from three scripts,
+# so those count as game data too: a change to the grenade is a minor bump.
+$dataFingerprint = Fingerprint @($Source, (Join-Path $PSScriptRoot 'mod_m34.py'),
+                                 (Join-Path $PSScriptRoot 'm34_icon.py'), (Join-Path $PSScriptRoot 'm34_patch.py'))
 $launcherFingerprint = Fingerprint @((Join-Path $PSScriptRoot 'launcher'))
 
 $numbers = $state.version.Split('.') | ForEach-Object { [int]$_ }
@@ -279,11 +282,25 @@ if (-not $wantOurChanges) {
 else {
     $patcher = Join-Path $PSScriptRoot 'patch_exe.py'
     if (Test-Path $patcher) {
-        & py -3 $patcher --exe $exe --fullscreen --no-intro --keep-focus --share-log --camera --fast-camera --active-pause --mailbox --airstrike-menu | Out-Null
+        & py -3 $patcher --exe $exe --fullscreen --no-intro --keep-focus --share-log --camera --fast-camera --active-pause --mailbox --airstrike-menu --m34 | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'putting soa.exe into a known state failed' }
-        Say 'soa.exe set to full screen, no intro, keeps focus, shared log, free and fast camera, active pause, mailbox, air strike in the menu' 'OK'
+        Say 'soa.exe set to full screen, no intro, keeps focus, shared log, free and fast camera, active pause, mailbox, air strike in the menu, the M34' 'OK'
     }
     else { Say 'patch_exe.py not found, soa.exe goes in as it was found' 'WARN' }
+
+    # The M34 grenade's data: two records more in Data.set, four texts, an
+    # icon record and the icon sheet with the icon drawn in - loose files
+    # beside the game, which win over the archives. The exe patch above is
+    # nothing without them (the trader would make an item with no settings),
+    # so they go in whenever it does. mod_m34.py reads the archives in the
+    # source and writes the files fresh every build.
+    $m34 = Join-Path $PSScriptRoot 'mod_m34.py'
+    if (Test-Path $m34) {
+        & py -3 $m34 $game | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'writing the M34 data files failed' }
+        Say 'the M34 grenade: Data.set, the texts, Items.gui and items_4.png beside the game' 'OK'
+    }
+    else { Say 'mod_m34.py not found, the M34 patch is on without its data - turn it off in the launcher' 'WARN' }
 
     # The radio calls the air strike button plays go into sounds.ubn: the
     # game finds a sound by its bare name in the archive's directory, and a
@@ -658,6 +675,11 @@ What is different from the original
 * upscaled object and terrain textures (Real-ESRGAN, twice the size)
 * camera on WASD, turning with Q/E, orders moved off the colliding keys:
   attack T, stop Z, kneel K, AI behaviour N/L/U
+* a few bytes in soa.exe, each with a box in the launcher's "Patches" window:
+  the air strike in the ring menu of every mission, a camera that goes higher
+  and closer, Shift for a fast camera, pause with orders, and the M34 white
+  phosphorus grenade - a sixth thrown weapon the game never had, a pack of
+  three the trader sells, a circle of fire where it lands
 
 Saved games
 -----------

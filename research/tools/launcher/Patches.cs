@@ -39,6 +39,9 @@ internal sealed class ExePatch
 {
     public string Key, Name, Tip;
     public PatchSite[] Sites;
+    /// A file beside soa.exe the patch cannot do without, and a text that
+    /// must be in it; null for a patch that is bytes alone.
+    public string NeedsFile, NeedsText;
 }
 
 internal static class Patches
@@ -181,6 +184,41 @@ internal static class Patches
         },
         new ExePatch
         {
+            Key = "m34", Name = "The M34 white phosphorus grenade",
+            Tip = "A sixth thrown weapon, item 150: a pack of three, thrown like a hand "
+                + "grenade, bursting after a few seconds into a wide circle of fire that "
+                + "burns for a while - deadly to men in the open, of little use against "
+                + "armour. The trader stocks one with the other grenades. The game names "
+                + "its five grenades by number in a dozen places - the factory, the hand, "
+                + "the throw, the icons, the HUD, the trader - and each is taught the "
+                + "sixth here. Needs the M34's records in Data.set, Items.gui and the "
+                + "texts beside the game, which the package carries; without them the "
+                + "box stays off.",
+            NeedsFile = @"Data\GameData\Data.set", NeedsText = "SET_M34",
+            Sites = new[]
+            {
+                At(0x1DFCF9, "0606", "0400"),
+                At(0x2F9D3F, "02", "01"),
+                At(0x300762, "3D930000000F85EC000000", "E999430B00909090909090"),
+                At(0x3007CE, "3D930000000F8580000000", "E94D430B00909090909090"),
+                At(0x1E69D7, "83F8107732", "E964E11C00"),
+                At(0x1E6770, "0F8768010000", "E90BE41C0090"),
+                At(0x16FE01, "5FC700D62700005E83C418C3", "E9CA4D240090909090909090"),
+                At(0x170E42, "5F5E89185D5B83C418C3", "E9093E24009090909090"),
+                At(0x126438, "8BCBC6431401E8FDDFFFFF", "E943E82800909090909090"),
+                At(0x2F8FF1, "817B14930000007420", "E90ABC0B0090909090"),
+                At(0x3B4B00, "000000000000000000000000000000000000000000000000000000", "3D930000000F8462BCF4FF3D960000000F8457BCF4FFE93EBDF4FF"),
+                At(0x3B4B20, "000000000000000000000000000000000000000000000000000000", "3D930000000F84AEBCF4FF3D960000000F84A3BCF4FFE91EBDF4FF"),
+                At(0x3B4B40, "000000000000000000000000000000000000000000000000000000000000000000", "83F8100F8705000000E98E1EE3FF83F8130F85B71EE3FFBE95380100E9B11EE3FF"),
+                At(0x3B4B80, "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "0F86F01BE3FF83F8130F854F1DE3FF6A3CE82641FAFF83C4048944241885C0C6442410020F84181DE3FF68970000008BC8E80ABAE2FF8986F4000000E9F11BE3FF"),
+                At(0x3B4BD0, "0000000000000000000000000000000000000000000000000000000000000000000000000000", "C700D6270000C744240C960000008D44240C508BCEE896DEC7FFC700E22700005F5E83C418C3"),
+                At(0x3B4C00, "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "817B14930000000F841400000068930000008BCEE8C714DDFF85C00F85E943F4FF817B14960000000F84EC43F4FF68960000008BCEE8A614DDFF85C00F85C843F4FFE9D343F4FF"),
+                At(0x3B4C50, "000000000000000000000000000000000000000000000000000000000000000000000000", "8918C7442414960000008D442414508BCEE8EAC1DBFFC700000000005F5E5D5B83C418C3"),
+                At(0x3B4C80, "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "6896000000E826AEE2FF83C404898424840000008D8424840000008B4E08506A01518BCEE887BBECFF8BCBC6431401E88CF7D6FFE98A17D7FF"),
+            },
+        },
+        new ExePatch
+        {
             Key = "charset", Name = "Central European characters in the fonts",
             Tip = "The game builds its fonts from Windows fonts and asks for the machine's "
                 + "default character set, so a Czech or Polish translation loses its "
@@ -256,9 +294,28 @@ internal static class Patches
         return on > 0;
     }
 
+    /// Whether the file the patch needs is beside the exe, with the text in
+    /// it. True for a patch that needs none.
+    public static bool HasFiles(string exePath, ExePatch p)
+    {
+        if (p.NeedsFile == null) return true;
+        string path = Path.Combine(Path.GetDirectoryName(exePath) ?? "", p.NeedsFile);
+        try
+        {
+            if (!File.Exists(path)) return false;
+            byte[] data = File.ReadAllBytes(path);
+            byte[] want = System.Text.Encoding.ASCII.GetBytes(p.NeedsText);
+            for (int i = 0; i + want.Length <= data.Length; i++)
+                if (Matches(data, i, want)) return true;
+            return false;
+        }
+        catch (Exception) { return false; }
+    }
+
     /// Writes the patch one way or the other. Null on success, otherwise why not.
     public static string Set(string exePath, ExePatch p, bool on)
     {
+        if (on && !HasFiles(exePath, p)) return p.NeedsFile + " with the M34 in it is not beside soa.exe";
         if (!File.Exists(exePath)) return "soa.exe was not found";
         byte[] data;
         try { data = File.ReadAllBytes(exePath); }

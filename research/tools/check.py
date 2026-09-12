@@ -145,7 +145,8 @@ def check_patches(exe, failures):
     # App.cs and are checked through the addresses above.)
     import re
     cs = open(os.path.join(HERE, 'launcher', 'Patches.cs'), encoding='utf-8').read()
-    hexes = set(re.findall(r'"([0-9A-F]{8,})"', cs))
+    # Two characters and up: the M34's table bytes are a byte or two.
+    hexes = set(re.findall(r'"([0-9A-F]{2,})"', cs))
     stale = [name for group, name, anchor, original, patched in patch_exe.PATCHES
              if group not in ('window', 'focus', 'intro', 'log')
              and (original.hex().upper() not in hexes or patched.hex().upper() not in hexes)]
@@ -200,7 +201,10 @@ def check_catalog(failures):
     import dataset
 
     try:
-        records = dataset.load()
+        # with the M34: the catalog lists what the game with the package's
+        # loose Data.set has, which is the archive's records and the two
+        # mod_m34.py appends
+        records = dataset.load(with_m34=True)
     except Exception as problem:
         say('Data.set could not be read: %s' % problem, 'FAIL')
         failures.append('dataset')

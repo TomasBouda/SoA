@@ -63,7 +63,7 @@ def val(r, i):
 
 def build():
     cat = catalog()
-    records = dataset.load()
+    records = dataset.load(with_m34=True)
     by_number = {r['number']: r for r in records}
 
     def common(r, limit):

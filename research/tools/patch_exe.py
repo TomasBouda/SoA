@@ -174,6 +174,17 @@ camera's; served from the Tick it found nothing - answers whatever request
 is there, on the game's thread, once a frame. Nothing in the game writes the
 request; tools/ui_inject.py does.
 
+**The M34 grenade.** A sixth thrown weapon, item 150 with its round 151:
+the data is mod_m34.py's (Data.set, the texts, the icon, all loose files),
+the bytes are m34_patch.py's, which lists every table and switch in the exe
+that names the five grenades by number and adds the sixth to each - the
+factory, the thrown weapon's constructor, CanUse, the animation event table,
+the projectile switch, the two maps behind the icons and the HUD, the
+trader's restock and the re-arm chain. The exe patch is useless without the
+files, and worse than useless: the trader would make an item with no
+settings. The build writes them; the launcher greys the box out when they
+are not there.
+
 Usage:
     python patch_exe.py                   what the exe currently does
     python patch_exe.py --windowed        a normal window
@@ -194,11 +205,15 @@ Usage:
     python patch_exe.py --no-mailbox      back to the original
     python patch_exe.py --airstrike-menu  the air strike button in every mission, on the point clicked
     python patch_exe.py --no-airstrike-menu  back to the designer's markers only
+    python patch_exe.py --m34             the M34 white phosphorus grenade, item 150 (needs mod_m34.py's files)
+    python patch_exe.py --no-m34          back to five thrown weapons
     python patch_exe.py --exe <path>      a different copy of the game
 """
 import argparse
 import os
 import shutil
+
+import m34_patch
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 # Where the game is. `SOA_SOURCE` lets the package builder point every
@@ -291,6 +306,11 @@ PATCHES = [
      0x3B4980, h('000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'),
      h('00000000000000000000000000000000726164696F5F616972737472696B655F612E77617600000000000000000000008B8548010000A380497B008B854C010000A384497B00C70588497B0000000000A1845A87008B481885C9E9067AD1FF8B44242C3B44243075116880497B006A01508D4C2434E876ACEFFF8D5424288BCB52E82A46F0FF85C0755F8B0DA45A870085C9741B68114A0000680000FF00FF3584497B00FF3580497B00E841C7E3FFA0A9497B00FEC03C03720230C0A2A9497B000461A2A0497B006A0083EC108BCC68A8497B006890497B00E82213C5FF8B0DAC0F8800E81723EFFFE90F7DE2FF518B0DA45A870085C9740A68114A0000E84DC7E3FF59A08812860083EC10E9E7F9F8FF')),
 ]
+
+
+# The M34's rows come from m34_patch.py, which is where their story is; they
+# are by file offset, like the caves, because the tables they change are data.
+PATCHES += m34_patch.entries()
 
 
 # The character set, which is a patch of a different shape and cannot go in the
@@ -392,6 +412,10 @@ def main():
                     help='the context menu offers an air strike on any point of any mission, '
                          'as long as a plane with bombs is in the hangar')
     ap.add_argument('--no-airstrike-menu', action='store_true', help='back to the original')
+    ap.add_argument('--m34', action='store_true',
+                    help='the M34 white phosphorus grenade, a sixth thrown weapon - '
+                         'with the data files mod_m34.py writes beside the game')
+    ap.add_argument('--no-m34', action='store_true', help='back to the original')
     ap.add_argument('--east-europe', action='store_true',
                     help='ask Windows for the central European characters, so a '
                          'Czech or Polish translation keeps its diacritics')
@@ -458,6 +482,10 @@ def main():
         wanted['airstrike'] = True
     if args.no_airstrike_menu:
         wanted['airstrike'] = False
+    if args.m34:
+        wanted['m34'] = True
+    if args.no_m34:
+        wanted['m34'] = False
     charset = None
     if args.east_europe:
         charset = EASTEUROPE_CHARSET

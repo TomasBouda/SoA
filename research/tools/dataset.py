@@ -69,8 +69,10 @@ def _try_record(d, p, setid_end):
     return kind, ident, strings, q
 
 
-def load(path=UBN):
-    """Parse the whole library.
+def load(path=UBN, with_m34=False):
+    """Parse the whole library; with_m34 adds the records mod_m34.py appends,
+    the M34 grenade and its round, as the game with the package's loose
+    Data.set sees them.
 
     The length of the number block depends on the item type and is written
     nowhere, so it cannot be looked up in advance. There is a way around it:
@@ -87,6 +89,14 @@ def load(path=UBN):
     id: 252".
     """
     d = zipfile.ZipFile(path).read(MEMBER)
+    if with_m34:
+        import mod_m34
+        d = mod_m34.data_set(d)
+    return parse(d)
+
+
+def parse(d):
+    """The records of a Data.set held in memory."""
     version, count = struct.unpack_from('<2I', d, 0)
 
     setids = [(m.start(), m.end()) for m in re.finditer(rb'SET_[A-Z0-9_]+', d)]

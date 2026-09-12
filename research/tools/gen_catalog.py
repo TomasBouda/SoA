@@ -38,6 +38,10 @@ previews.
 
 Everything is converted to PNG into the catalog subfolder next to the launcher.
 
+The M34 grenade (mod_m34.py) is in the catalog as the game with the
+package's loose files sees it: its records appended to Data.set, its texts,
+its icon record and the sheet with the icon drawn in.
+
 The output is tab separated, not JSON: the launcher is written against the .NET
 Framework without third-party libraries, and taking this apart is a couple of
 lines there.
@@ -56,6 +60,8 @@ from PIL import Image
 
 import dataset
 import gen_ids_doc as g
+import m34_icon
+import mod_m34
 import trs
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
@@ -175,15 +181,14 @@ DESCRIPTION_KEYS = {
 }
 
 
-def icons_from_items(zdata, zgui):
-    """Return {RES name: (sheet, l, t, r, b)} from Items.gui.
+def icons_from_items(d):
+    """Return {RES name: (sheet, l, t, r, b)} from the bytes of Items.gui.
 
     After the name a record holds one int, four floats with the rectangle, a
     couple of zeros, two ones and only then the sheet id. The first int looks
     like a sheet number, but it is the same for every item - taking it cuts
     everything out of the first sheet and most icons come out wrong.
     """
-    d = zdata.read('data/GUIData/Items.gui')
     out = {}
     for m in re.finditer(rb'RES_[A-Z0-9_]+', d):
         p = m.end()
@@ -233,20 +238,21 @@ def main():
     z = zipfile.ZipFile(g.UBN)
     zgui = zipfile.ZipFile(GUI)
     sources = load_sources(zgui)
-    icons = icons_from_items(zipfile.ZipFile(DATA), zgui)
+    icons = icons_from_items(mod_m34.gui(zipfile.ZipFile(DATA).read('data/GUIData/Items.gui')))
     sheets = {}
     for i in range(1, 7):
         sheets[i] = Image.open(io.BytesIO(
             zgui.read('gui/GUI_Shared/Items/items_%d.png' % i))).convert('RGBA')
+    sheets[m34_icon.SHEET_NUMBER] = m34_icon.sheet_with_icon()
 
     unit_names = g.names(z, 'data/ObjData/Units.olb', 'UNIT_',
                          'TRES_OBJECTS_', 'TRES_OBJECTS', forward=True)
     units = g.ids(z, 'data/ObjData/Units.olb', r'UNIT_[A-Z0-9_]+')
 
-    records = dataset.load()
+    records = dataset.load(with_m34=True)
     by_number = dict((x['number'], x) for x in records)
     by_id = dict((x['id'], x) for x in records)
-    texts = dict(trs.parse(z.read('data/GUIData/TextResource_eng/TRES_EQUIPMENT.trs')))
+    texts = dict(trs.parse(mod_m34.texts(z.read('data/GUIData/TextResource_eng/TRES_EQUIPMENT.trs'))))
     bunker_texts = dict(trs.parse(
         z.read('data/GUIData/TextResource_eng/TRES_BUNKER_DESCRIPTIONS.trs')))
 

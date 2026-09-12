@@ -1299,6 +1299,106 @@ called this way too, which is what the TODO asks for.
 
 ---
 
+## A new weapon: the M34 white phosphorus grenade
+
+The question was whether a weapon can be added at all, and the answer is yes,
+with a caveat that says a lot about how the engine is built: the data is
+easy, the exe is where the work is. The M34 is item 150 with its round 151,
+a pack of three, thrown like the hand grenade, bursting a few seconds after
+it lands into a circle of fire that burns for a while - a lot to a man in
+the open (120–180 a hit, then the fire), little to armour (20–40, and only
+under 60 of it). Everything about it is in three scripts:
+[tools/mod_m34.py](tools/mod_m34.py) writes the data,
+[tools/m34_icon.py](tools/m34_icon.py) draws the icon,
+[tools/m34_patch.py](tools/m34_patch.py) holds the bytes.
+
+![The burst](pictures/m34-burst.jpg)
+
+### The data: four loose files
+
+What the game reads about a thrown weapon is in four files, and every one
+can be a loose file beside the game (the precedence above), so nothing is
+repacked. `Data.set` gets two records appended - a copy of the Molotov's
+weapon and round with the numbers and the damage changed and the count of
+records bumped; `TRES_EQUIPMENT.trs` four texts, name and hint of each;
+`Items.gui` one icon record, `RES_M34`, with a rectangle on sheet 4; and
+`items_4.png` is the sheet itself with the icon drawn into the one hole
+the six sheets have (the rectangles of `Items.gui` cover most of them, and
+what they do not cover is mostly painted on anyway - the first try, an
+empty-looking corner of sheet 6, was inside the turret machine gun's
+rectangle and the M34 turned up in the middle of every tank's MG icon).
+The number 150 is free: the highest the game uses is 252, but the ones
+between are not all taken, and the base cheat `equipment(150)` is how the
+first one was handed out.
+
+With the files alone the settings objects exist, the cheat makes an item -
+and the item is inert: the trader does not stock it, the Equip screen
+does not list it, and a soldier holding it does not throw it.
+
+### The exe: a thrown weapon is five numbers, in a dozen places
+
+The engine does not learn what a thrown weapon is from `Data.set`. It
+knows five of them by number - 131 the knife, 132 the hand grenade, 136 the
+Molotov, 146 smoke, 147 stun - in switch statements and lookup tables
+spread over the code, and a number outside those falls off the end of
+every one. `tools/m34_patch.py` lists them; each got a byte or two, or a
+cave in the padding at the end of `.text` (behind the air strike's, at
+`0x7B4B00` on) that is a copy of the case beside it with the number
+changed:
+
+| where | what it decides | without the patch |
+|---|---|---|
+| the factory's class table, a byte per number (`0x5DFC64`) | which constructor a number gets - 150 a thrown weapon, 151 a round | `equipment(150)` fails |
+| the thrown weapon's constructor (`0x5E6720`) | a switch on the number makes the round: 132 gets 134, 136 gets 135... | the M34 has no round, the HUD shows 0 |
+| `CanUse` (`0x700650`) | two lists of what a soldier may hold, on foot and in a vehicle | the Equip screen hides it |
+| the animation event table, a byte per number (`0x6F9CD0`) | 1 means the animation's event is a throw, 2 a shot | the arm swings and nothing leaves the hand |
+| `Throw` (`0x5E6980`) | the projectile type by number: 0x13895 the grenade's, 0x13896 the Molotov's, and so on | the type is an uninitialised local |
+| the icon map, `[tools]+4`, built in `0x56EC70` | number → the ordinal of the `Items.gui` record | the row has no icon; the record's name is never looked at |
+| the size map, `[tools]+0x14`, built in `0x56FE10` | number → the size class of the HUD's inventory cell | the soldier panel draws a null image and the game dies |
+| the trader's restock (`0x525B70`) | one of each grenade, ten of each consumable | the trader never has one |
+| the re-arm chain (`0x6F8E29`) | after the last of a kind is thrown, the hand looks for the next kind | a pack of M34s in the backpack is not picked up |
+
+Two of these were found by reading, the rest by watching. The throw was the
+one that resisted: `CanUse` patched, the item in the hand, the order
+accepted, the animation started - and nothing. The game's trace at full
+mask says nothing about it either. What settled it was a hit tracer,
+[tools/probe.py](tools/probe.py): a hook at the entry of every function on
+the way, writing who ran with what into a buffer in the game's memory, run
+once for a Molotov and once for the M34. The two logs parted at the
+animation event - `0x6F9BA0` picks the event from a table by item number,
+and the M34's byte said "shot", so the throw handler never ran. The next
+run parted at `Throw`, whose switch on `number - 131` had no case.
+
+The maps are the reason the patch is by file offset and not by signature,
+and the reason the launcher greys the box out when the data files are
+not beside the exe: the trader's restock makes one M34 every time, and
+an item whose settings do not exist is a crash waiting for the first
+mission to end.
+
+### What the player sees
+
+The trader stocks one with the other grenades; the Equip screen lists it
+after the hand grenade and a double-click puts a pack of three into the
+soldier's backpack; in the mission the HUD shows it with its count, the
+hint reads, and dragging it to the thrown-weapon slot - or the game's own
+`Commando_ChangeEquipment`, vtable slot `0x330`, which is what the drag
+does - puts it in hand. Saving and loading keep it: the save holds the
+number and the constructor makes the round again. It is thrown by the
+usual order (`0x384`, the same as the Molotov), counts down through the
+pack, and the empty pack goes away like the others.
+
+![In the Equip screen](pictures/m34-equip.jpg)
+![The hint in the HUD](pictures/m34-hud-hint.jpg)
+
+Not done, and known: the Object Information screen of the base is a fixed
+list with 3D models and does not know it; the stock room's 3D shelves
+(`Y2KBunkerLayoutStorage`, a map of number → shelf slot) do not show it;
+the AI does not throw it. And the kit variant of the package cannot have
+it: the launcher patches the player's own exe, and the data files are the
+package's - so there the box stays off.
+
+---
+
 ## A map of the exe, from the game's own trace calls
 
 The game has no RTTI - the twenty type names in it all belong to the standard

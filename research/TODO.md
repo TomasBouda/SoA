@@ -464,6 +464,31 @@ the console window can now `quicksave` and `quickload`
 
 ## Content and looks
 
+- [x] ~~**Can a weapon be added?**~~ Yes: the M34 white phosphorus grenade,
+      item 150, is in the package - a pack of three, thrown like the hand
+      grenade, a circle of fire where it lands. The data is four loose files
+      ([tools/mod_m34.py](tools/mod_m34.py)); the exe names its five thrown
+      weapons by number in a dozen places and each had to learn the sixth
+      ([tools/m34_patch.py](tools/m34_patch.py)). See
+      [architecture.md](architecture.md), "A new weapon". Still open around
+      it:
+      - [ ] the Object Information screen (the base's encyclopedia) is a
+            fixed list with 3D models and does not know it;
+      - [ ] the stock room's 3D shelves do not show it
+            (`Y2KBunkerLayoutStorage`, number → shelf slot);
+      - [ ] the enemy AI never throws one (`Y2KKIAdd`, 0x573F50, has the
+            same five numbers);
+      - [ ] the fire: the burst is the Molotov's fire effect, one flame
+            that burns a second or two. A wider, longer fire would need the
+            fire effect itself looked at (`0x56D9A0`, the explosion, and
+            the burning tick);
+      - [ ] a second new weapon would show what is M34-specific in the
+            patch and what is general - the caves compare with one number
+            each; a table of new numbers would take several;
+      - [ ] the kit cannot have it: the launcher patches the player's exe
+            and the data files are the package's. The launcher could carry
+            the four files and write them beside the game.
+
 - [x] ~~**Enlarge the portraits.**~~ Done and measured. The faces are 32 by 48
       in the sheet and the game draws the selected one at 75 by 94 on a 1920 by
       1080 screen, so it was magnifying by two and a third - which is why a
