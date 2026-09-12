@@ -138,3 +138,87 @@ Ready-made behaviour patterns that can be assigned to a unit.
 | `TRES_MISSIONSDESIGN_PARAM_SETUIMISSIONGOALS_IMPOSSIBLE` | impossible |
 
 Full listing: `python tools/trs.py ../_patched/data.ubn MISSIONGOALS`
+
+
+## Every trigger class in the executable
+
+The tables above come from the editor's text resources and cover
+only what a mission author is shown a panel for. These are all of
+them, taken from the class names in `soa.exe`, in the order they
+lie there.
+
+**The order is probably the numbering the mission files use** and is
+not proven to be. A script element is stored in a `.mis` as a number -
+none of these words appears in one - and until a mission has been
+decoded against this list, the index beside a name is where it sits in
+the executable and nothing more.
+
+| # | class | at |
+|---|---|---|
+| 0 | `Random` | `0085C338` |
+| 1 | `Area` | `0085C3A4` |
+| 2 | `Time` | `0085C404` |
+| 3 | `SwitchState` | `0085C43C` |
+| 4 | `MissionStart` | `0085C47C` |
+| 5 | `PartyStatistic` | `0085C4BC` |
+| 6 | `MissionEnd` | `0085C538` |
+| 7 | `Damage` | `0085C5A4` |
+| 8 | `OwnUnit` | `0085C610` |
+| 9 | `PickAdd` | `0085C6B0` |
+| 10 | `InGameMovieEnds` | `0085C6F0` |
+| 11 | `EnemySpotted` | `0085C734` |
+| 12 | `IsApproached` | `0085C7AC` |
+| 13 | `IsInsideUnit` | `0085C824` |
+| 14 | `PartySpottedParty` | `0085C8A0` |
+| 15 | `PartyAttackedParty` | `0085C8FC` |
+| 16 | `IsInInventory` | `0085C960` |
+| 17 | `ObjectIsUsed` | `0085C9B8` |
+| 18 | `DialogEnds` | `0085CA0C` |
+| 19 | `PartySpottedInArea` | `0085CA50` |
+
+## Every event class in the executable
+
+| # | class | at |
+|---|---|---|
+| 0 | `3DSound` | `0085A82C` |
+| 1 | `MissionState` | `0085A840` |
+| 2 | `UITextMessage` | `0085A85C` |
+| 3 | `DoDamage` | `0085A878` |
+| 4 | `SetFollowMission` | `0085A8C8` |
+| 5 | `SetMissionIntro` | `0085A8E8` |
+| 6 | `SetMissionExtro` | `0085A904` |
+| 7 | `InsertObject` | `0085A920` |
+| 8 | `SetObjectState` | `0085A978` |
+| 9 | `RemoveObject` | `0085A9CC` |
+| 10 | `StartScript` | `0085A9E8` |
+| 11 | `FadeScreenIn` | `0085AA00` |
+| 12 | `FadeScreenOut` | `0085AA1C` |
+| 13 | `SetSwitch` | `0085AA38` |
+| 14 | `StartPing` | `0085AA50` |
+| 15 | `StopPing` | `0085AA68` |
+| 16 | `CameraTrack` | `0085AA80` |
+| 17 | `StartVideo` | `0085AA98` |
+| 18 | `SetUIMissionGoalState` | `0085AAB0` |
+| 19 | `MovieStripeIn` | `0085AAD4` |
+| 20 | `MovieStripeOut` | `0085AAF0` |
+| 21 | `AddToInterchange` | `0085AB0C` |
+| 22 | `AddToBunker` | `0085AB2C` |
+| 23 | `SetDiplomacy` | `0085AB44` |
+| 24 | `JoinParty` | `0085ABD0` |
+| 25 | `UnitMoveTo` | `0085AC54` |
+| 26 | `Patrol` | `0085ACA0` |
+| 27 | `StartTime` | `0085ACB4` |
+| 28 | `Play2DSound` | `0085ACCC` |
+| 29 | `UnitBehaviour` | `0085ACE4` |
+| 30 | `SetApproachableMode` | `0085AD3C` |
+| 31 | `GetIn` | `0085AD94` |
+| 32 | `GetOut` | `0085ADDC` |
+| 33 | `AttackObject` | `0085AE24` |
+| 34 | `Dialog` | `0085AEB0` |
+| 35 | `CancelActDial` | `0085AEC4` |
+| 36 | `MakeObjectUsable` | `0085AEE0` |
+| 37 | `KnightCamouflageState` | `0085AF3C` |
+| 38 | `CrawlerMines` | `0085AFA4` |
+| 39 | `ShowBoxInventory` | `0085AFF8` |
+| 40 | `SetCharImmortal` | `0085B054` |
+| 41 | `CancelActCountdown` | `0085B0AC` |

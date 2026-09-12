@@ -9,6 +9,14 @@ off most for the least work.
 about 80 % of a campaign mission is still unmapped, see
 [missions.md](missions.md).
 
+- [~] **The units, characters and scripts.** Partly mapped now: the tail opens
+      with the camera's matrix, then the parties - whose records shrink by eight
+      bytes each in turn, which is a triangular table of who stands with whom -
+      and then the characters at a nearly fixed stride, each a name followed by
+      a zero, eight `0xFF` bytes and a run of numbers. `mis.py --people` lists
+      them. Which number is which skill is **not** known and the alignment
+      differs between the test and campaign missions, so nothing is labelled.
+      See [missions.md](missions.md). The rest of the original entry stands:
 - [ ] **The units, characters and scripts.** That is the whole remaining tail,
       2 to 3 MB per campaign mission. Start from
       [Melkij's PHP parser](https://github.com/Melkij/soa-game-revers-eng) - it
@@ -350,8 +358,9 @@ the console window can now `quicksave` and `quickload`
 - [ ] **`ShowVisMap` and `ShowKIMap`.** These two ask the visibility and the AI
       manager for a map before they build the overlay (`0x880FB0`, `0x6AE9B0`),
       so they need a second object and a pointer, not just a vtable.
-- [ ] **`AirStrike` and the replay commands.** These do need the command tree,
-      or at least their own case bodies read the same way the overlays were.
+- [ ] **The replay commands.** These do need the command tree, or at least
+      their own case bodies read the same way the overlays were (`AirStrike`
+      was, and turned out to be a game feature - see *Air support* below).
       `Replay.Jump` and `Replay.SpeedFactor` would make a recorded run a proper
       benchmark.
 - [ ] **`RECORD` and `REPLAY`.** The command line takes both and the game writes
@@ -362,6 +371,15 @@ the console window can now `quicksave` and `quickload`
       driving a replay finely needs the injection above.
 
 ## Editing and making maps
+
+- [~] **The scripting vocabulary is out of the executable now.** 20 triggers
+      and 42 events, against the ten the editor's text resources named -
+      `CY2KKITrigger_*` and `CY2KKIEvent_*`, in two unbroken blocks, listed in
+      [editor-scripting.md](editor-scripting.md) by `gen_editor_docs.py`. A
+      script element is stored in a `.mis` as a **number**, since none of those
+      words appears in one, and the order the classes lie in is very probably
+      that numbering - but it is not proven, and the document says so beside
+      every index.
 
 - [ ] **Learn the editor and write down what it can do.** The whole mission
       editor ships inside the retail game - code, layouts, artwork, text - and
@@ -395,12 +413,24 @@ the console window can now `quicksave` and `quickload`
       rule about *which* parts to transform could ever have worked. Every mesh
       in 401 models comes out placed and named. See [models.md](models.md).
 
-- [ ] **The animations, tried and not solved.** A file gives up one pose and
-      the rest of it is the movement. The block opens `16, 100, 1, 100` and runs
-      to 292874 bytes for a mesh of 428 vertices. Repeated runs fall most often
-      24 apart, which looks like a position and a normal per vertex per frame
-      and is not - read that way the numbers are not coordinates. The stride is
-      real and the reading was wrong, most likely because the data is quantised.
+- [x] ~~**The animation tracks.**~~ **Solved.** A `0x10001` chunk is two lists of
+      keys behind one header that describes both: n keys of 40 bytes - a time, a
+      position and the tangents either side of it - and n+1 of 84 - a time, a
+      quaternion and a 4x4 matrix. Times are milliseconds, keys every 100 of
+      them. Every animation measured closes on the byte. They belong to the
+      *dummy* nodes, which is where a character carries a weapon.
+
+- [x] ~~**The body's animation.**~~ **Solved, out of the loader.** The mesh chunk
+      header is forty bytes and its sixth field is the frame count - one for a
+      crate, 29 for a walking antelope. It had been sitting in front of the face
+      list the whole time; `diff3dLoader.cpp` at `0x6392F0` reads `0x28` bytes
+      and then refuses to go on unless four of the fields hold, which is what
+      named them. Frame zero is the static mesh; every frame after it is a
+      sixteen byte header carrying the time in milliseconds, then the vertex
+      list again at 24 bytes each - a position and a normal, since the colour
+      and the texture coordinates do not change. 110 animated meshes and 3317
+      frames read out of 221 models. `--frame N` draws one.
+      See [models.md](models.md).
 - [x] ~~**A model viewer in the launcher.**~~ The **Models** button: 1253 models
       with a search box, one drawn beside them with its own textures, dragged to
       turn. WPF's own 3D, so nothing was added to the package but code.
@@ -492,16 +522,81 @@ the console window can now `quicksave` and `quickload`
       every build wipes the output folder and copies it again from there, so a
       loose file put straight into the package would vanish at the next build
       without a word - which is how it was nearly left the first time.
-- [ ] **Air support.** `order air strike` turned out to be a console command,
-      `AirStrike`, next to the MiG-23 and MiG-29 models and the bomb ammunition
-      (`SET_MUN_250KGBOMBE`, `SET_MUN_500KGBOMBE`). Since the console never
-      opens, the question is whether a mission script can call the same thing -
-      and what it does when it fires.
+- [x] **Air support.** A shipped feature, not a console leftover: the
+      context menu's air strike button calls the same launch (`0x6B9030`)
+      the `AirStrike` console command does, and needs a plane with bombs in
+      the hangar - but the button only appears in a mission whose designer
+      placed target markers, and none of ours has them. So
+      [tools/airstrike_inject.py](tools/airstrike_inject.py) calls the launch
+      with points of its own, verified live: plane, bomb, dead unit. The
+      launcher has it too, since 1.18.1: `airstrike(x, y)` in the console and
+      an *Air strike* button in the map window that arms one click. See
+      [architecture.md](architecture.md).
+- [x] **Air strike from the context menu.** `patch_exe.py --airstrike-menu`,
+      in the package and the launcher's Patches window: the button's condition
+      becomes "a plane with bombs in the hangar", the case notes the click's
+      point, and an empty waypoint list gets it before the launch - a
+      mission's own markers still win; a launch that flew puts a red ping
+      on the minimap until the plane lands and plays one of the three radio
+      calls, which sit in sounds.ubn. Verified live. See
+      [architecture.md](architecture.md).
+- [x] **Camera zoom.** The limits are two immediates in the camera's
+      constructor and the wheel slid at both because the clamp put only z
+      back; `patch_exe.py --camera` fixes both, in the package since 1.19.0,
+      and `--fast-camera` makes Shift move it five times as fast (1.20.0).
+      See [architecture.md](architecture.md).
+- [x] **Pause and give orders.** The "turn-based patch" of the 1.0 readme,
+      never in 1.1.2: `patch_exe.py --active-pause`, in the package since
+      1.21.0 and in the launcher's Patches window. See
+      [architecture.md](architecture.md).
 - [ ] **Multiplayer over LAN.** The internet server list is dead, LAN should
       still work, nobody has tried. Two sandboxes on one host would do.
 - [ ] **`querschlaeger1.wav`.** The ricochet sound is referenced and shipped
       nowhere; unlike the body hit sounds there is nothing in the archives to
       put in its place. Either leave it silent or accept a substitute.
+
+## The AI at the controls
+
+- [~] **A program that plays.** `tools/play_bot.py` reads the squad and
+      sends it places through the game's mailbox (`--mailbox`, 1.22.0):
+      the projection comes from the Direct3D matrices, orders from the
+      right click's own function, verified exact; every other order is a
+      virtual call on the unit through the mailbox's fourth request - the
+      slots named by the game's own trace, after a first table had "attack"
+      on the grenade slot. It reads the players, their diplomacy (0 neutral,
+      1 enemy, 2 friend) and every unit's health, and its first plan
+      (`--hunt`) closes on the nearest enemy soldier and shoots him, keeping
+      away from armour. `mission_cheat.py` sends the mission cheats
+      (endlessmunition is a toggle - read the byte first) and loads a save
+      with no menu; `menu_bot.py` does the menus when there is no mission
+      yet. Open: a plan with cover, vehicles and anti-tank weapons in it,
+      and a sight test - the map cells carry the party of a unit whether
+      the player can see it or not, so they are not one.
+
+What the first plan taught, in the order it should be fixed:
+
+- [ ] **Know what the squad carries.** Read each soldier's weapons and
+      the inventory of the squad's vehicles (the weapon objects hang on the
+      unit at `+0x334..+0x340`, the character at `+0x320`), so a plan knows
+      who has an anti-tank weapon, who is a medic, what the BMP and the
+      Hind can do - and never sends rifles against armour again.
+- [ ] **Use the squad's own vehicles.** GetIn/GetOut work as orders; a tank
+      or the helicopter is what the plan should answer enemy armour with,
+      and the air strike from the launcher is the other answer.
+- [ ] **A real test of sight.** The map cells carry a unit's party whether
+      the player can see it or not, so they are no sight test; an attack on a
+      unit out of sight is taken and does nothing. `Landscape.ShowVisMap iX
+      iY` says a visibility map per player exists - find it, or the flag on
+      the unit that says who sees it.
+- [ ] **The air strike is the AI's too.** A plan may call one on enemy
+      armour or a dug-in group when the hangar has a plane with bombs
+      (`airstrike_inject.py` is the call; the radio call and the map marker
+      are the launcher's): worth the bomb when rifles cannot do it, and never
+      on the squad's own position.
+- [ ] **Cover and posture.** Kneel or lie down when shooting, stand to run,
+      keep the squad together, and give the plan a reason to be somewhere:
+      the mission goals (`Mission Goals` in the Esc menu reads them from
+      somewhere) rather than the nearest enemy.
 
 ## Solved, kept for reference
 

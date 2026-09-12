@@ -230,3 +230,37 @@ carry none of the original and are useless without it - and they were dropped
 after being thought through rather than after being built. An enlarged picture
 is a different bitstream from the one it came from, so the delta comes out
 about the size of the result and buys nothing but the argument.
+
+## Keeping the public repository up to date
+
+`tools/publish.ps1`. Until it existed the public repository was updated by hand
+out of a temporary folder, which is a way of working that goes wrong quietly: a
+tool changes here and the public copy silently stays old, and every new file
+needs somebody to remember whether it may go out.
+
+**It works from an allow list, not a deny list.** A file goes out because a rule
+names it; a new file that no rule names stays here. That way round matters,
+because getting it wrong publishes the game's own data by accident and it cannot
+be taken back.
+
+It also refuses, whatever the rules say, anything shaped like the game's own
+data - `.ubn`, `.diff3D`, `.sav`, `.mis`, `.trs`, `.mp3`, `.tga`, an exe, a dll,
+or simply anything over 8 MB, since nothing of ours is. The allow list is
+written by hand and hands slip.
+
+    publish.ps1                       what would change, and nothing else
+    publish.ps1 -Push -Message "..."  copy, commit and push
+
+The dry run is the default deliberately. It compares with the line endings
+normalised rather than byte for byte, because git checks the public repository
+out with CRLF while this one keeps LF - compared raw, every text file reads as
+changed and the real change is buried in seventy others.
+
+The checkout lives at `F:\Games\SoA-Public` and is cloned if it is not there.
+`README.md` and `docs/` are edited in that repository and this script leaves them
+alone.
+
+Commits carry `Tomáš Bouda <email@tomasbouda.cz>` and no `Co-Authored-By` line.
+Both matter: GitHub pairs a commit to an account by the e-mail, and the
+obvious-looking address on this machine belongs to a different account - which
+put two strangers into the contributor list and took a rewritten history to undo.

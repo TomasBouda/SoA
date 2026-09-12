@@ -517,6 +517,356 @@ well - the state switch in `Y2KApp.cpp` asks it something at `0x6D351C` - so it
 is not obviously absent from the release build, and whether a shipped game has
 one is a single dword read away while the game runs. Nobody has looked.
 
+### The air strike is a shipped feature; the console command was its test
+
+`AirStrike` is the eighth command in the top group and its own source file is
+`scripts\AirStrike.cpp`. The console case (`0x6D48AD`) reads as follows once
+the callees are named - the first reading of it took the wrong function for
+the launch:
+
+    construct a flight object       0x6B8D20   (only a vtable, 0x7D2D28; the object is 4 bytes)
+    insert waypoint (100, 100, 2.0) 0x6AF670   vector<xyz>::insert(end, 1, value)
+    insert waypoint (150, 150, 0.0) 0x6AF670
+    launch                          0x6B9030   (this, &vector) -> int, 0 = flew, 1 = no plane, <0 = error
+    destroy the vector              0x6A0940   (a `ret 8` - the element type is plain floats)
+    free its storage                0x756600
+    destroy the flight object       0x6B8D50
+
+**The two waypoints are hard-coded** - `0x42C80000` is 100.0, `0x43160000` is
+150.0 - so the developer command flew a fixed diagonal. But the launch behind
+it is not a test at all.
+
+What `0x6B9030` does:
+
+* takes the **bunker** (`[0x8759C0]`, a `Y2KBunker` of 0xE8 bytes, created in
+  `0x51ABD0`) and its unit list at `+0xD8` (a `vector<Y2KKIBasicPartyObject*>`;
+  the hangar and workshop panels iterate the same vector). Null bunker or an
+  empty waypoint list is `E_FAIL`.
+* keeps the units whose category at `+0xC` is zero - the aeroplanes - and
+  which have a weapon
+  with ammunition left (`0x586E90` counts the weapons, `0x5870C0` fetches one,
+  its `+0xF4` is the magazine and vtable `+0x30` on that says how much is in
+  it). No such unit: returns 1 and nothing happens.
+* for each waypoint, round-robin over the candidates, calls
+  `0x6B9390(this, &xyz, plane, isLast)` - the one function in `AirStrike.cpp`.
+  It erases the plane from the bunker list, re-initialises it (vtable `+0xBC`,
+  `0x57C100`, `+0xC4`, `+0x2C`), registers it with the world
+  (`0x687DF0(world, [plane+0xB0])`), writes the waypoint into the plane's
+  position at `+0x54..+0x5C`, and builds a 0x60-byte order with
+  `0x743FC0(plane, 0x88, isLast, xyz)` from `Y2KKIUnitAirplane.cpp`, which
+  goes in through vtable `+0x100` and `0x6A5450` (`SkriptList.cpp`).
+* when the plane's animation script ends
+  (`CY2KKIUnitAirplaneScript_Animation::OnEnd`, `0x744470`) the plane is taken
+  out of the world and pushed back into the bunker list - it lands again.
+
+**The game calls this itself.** `0x6B9030` has exactly one other caller,
+`0x5DC610` in `Y2KKIUIPlayer.cpp`, and that is button 5 of the mission context
+menu (`MissionKontextMenu.cpp`, jump table `0x4CCD28`, ids counted from one):
+the fifth button of `LAY_MISSION_KONTEXTMENUE.lay` is
+`LAY_MISSION_KONTEXTMENUE_BUTTON_LUFTSCHLAG`, its text
+`TRES_GM_MAIN_BUTTON_LUFTSCHLAG` is *Air Strike*, and the MiG-27's own
+description says *the 5 pylons can be loaded with 500lb and 1,000lb bombs*.
+The player's version first asks `0x6B8D60` whether a plane with ammunition is
+in the bunker at all, then collects the waypoints from the mission: every
+object of type `0x7F9` (`Y2KKIEvent`) in the player's object list
+(`[0x875A60]+0x6C`) whose script (`+0x178`) is flagged (`0x6A77A0`, byte
+`+0x2C`) and belongs to this player (`0x6A7710`, `+0x28`, compared with
+`[player+0x20]`) gives its position, is unflagged and removed from the world.
+
+**Why the button never shows.** The menu is filled by the selected units: the
+context menu (`0x4CB9E0`) asks each one through vtable `+0x38`, and the
+answers are merged by `0x4CBC20` into a list of button indices counted from
+zero. `Y2KKIChar`'s answer (`0x6F7BA0`) adds index 4 - the air strike - only
+when the click was on open ground **and** `0x583B50` says the mission holds a
+flagged `Y2KKIEvent` for the player's party. Those markers are the mission
+designer's to place, and a mission without them has no air strike, however
+many MiGs sit in the hangar. (Index 5, *speech*, is what a click on a vehicle
+made approachable by `SetApproachableMode` - byte `+0x238` - adds; the two are
+easy to confuse.)
+
+**Or the button itself, in every mission** (`patch_exe.py --airstrike-menu`,
+in the launcher's Patches window). Four small patches make the game's own
+button do what the map window does, radio and marker included:
+
+* `0x583B50`, the question both `KIChar` (`0x6F83F4`) and `KIUnit`
+  (`0x71C9AC`) ask before offering the button - *is there a flagged marker
+  for this party* - becomes a jump to `0x6B8D60`, *is there a plane with
+  bombs in the bunker*. It reads only the bunker global, so the unit in
+  `ecx` does not matter, and it returns the same way.
+* the button's case (`0x4CC3DB`) first copies the click's world point, which
+  the menu keeps at `+0x148`/`+0x14C`, into twelve bytes of the `.text`
+  padding (`0x7B4980`, z = 0 - what the injection tool uses too).
+* the launch (`0x5DC771`): an empty waypoint list gets that point inserted
+  with the vector's own `insert` (`0x6AF670`, at the end, one element) - a
+  mission with markers of its own still bombs the markers - and when the
+  launch answers 0, a **red ping** goes on the minimap at the point and a
+  **radio call** plays.
+* when the flight is over (`0x744470`, the airplane script's `OnEnd`, which
+  also puts the plane back into the bunker list) the ping is taken off.
+
+The ping is the scripting system's own `StartPing`: `0x5F1170(x, y, colour,
+id)` on the mission object - `[0x875AA4]`, which is where the event reads
+it, and which makes the launcher's heap scan for the mission unnecessary -
+puts a 0x20-byte record into the minimap's vector at `[mission+0x240]+0x80`
+(`+4` x, `+8` y, `+0xC` colour as `0x00RRGGBB`, `+0x10` a clock, `+0x14`
+1500 ms between rings, `+0x1C` the id), and the minimap sends a ring out
+from the point every one and a half seconds until `StopPing`
+(`0x5F11D0(id)`) removes the record. The missions' own pings are green
+(`0x0000FF00`); ours is red, id `0x4A11`.
+
+The radio is `Play2DSound`'s call: `0x6A6D80(tsString name, 0)` on the
+sound object `[0x880FAC]`, which looks the bare name up in eleven fixed
+folders (`sounds\ingame\units\` ... `\misc\`, `\music\`, and the mission's
+own) - and only among the names the archive directory knows: a loose file
+replacing an entry works, a new loose file does not (`E_FAIL`, "Sound not
+found. ''"). So the three clips go **into `sounds.ubn`** under
+`sounds/InGame/misc/`, appended by [tools/add_sounds.py](tools/add_sounds.py)
+at build time - by hand, not with Python's `zipfile`, which rewrites the
+central directory and turns the five `SchussTreffer_Körper` names into
+UTF-8. The cave keeps `radio_airstrike_a.wav` in the padding and rotates
+the letter, so the three calls take turns.
+
+The ring menu opens on a held right button on open ground; the jet is at
+the top right of the ring (the ring moves to stay on the screen near an
+edge), and letting go on it sends the MiG. Verified live: the plane leaves
+the bunker list the same moment, the point in the padding reads what the
+unprojection says for the click, the rings run for the thirty seconds the
+plane is out and stop as it lands, and the log shows the clip found. Two
+things learned the expensive way: a strike within twenty-five units of the
+squad ends the mission (the bomb does not care whose it is), and in follow
+mode every click near the squad is near the squad.
+
+**So the injection is the way for a program, and it is verified.**
+[tools/airstrike_inject.py](tools/airstrike_inject.py) does what the console
+case did with points of its own: builds the vector on the thread's stack,
+constructs the 4-byte strike object, inserts the points, calls `0x6B9030`,
+frees the vector. With a MiG-27 (`vehicle(2)`) and bombs on its pylons in the
+hangar, `--at X,Y` sends the plane, the bomb lands on the point and a unit
+standing there dies - three strikes in one session, no crash, the launch
+answering 0 each time and the plane back in the bunker list a few seconds
+later with one pylon's magazine gone. Without a plane it answers 1 and nothing
+happens. The plane's own record shows the flight: its position at `+0x54`
+becomes the target and the first pylon's magazine at `[weapon+0xF4]` turns
+null.
+
+The launcher carries the same call (`GameLink.AirStrike`): `airstrike(x, y)`
+in the console, and in the map window an *Air strike* button that arms the
+next click - one click, one bomb, then it disarms itself, and Esc puts it away.
+The map marks the target with a ring and a cross for the 45 seconds or so the
+plane is out, and a radio call plays: the game has no chatter of its own, so
+[tools/radio_clip.py](tools/radio_clip.py) makes one from the Windows voices
+through a radio's narrow band - three exchanges, recorded with ElevenLabs,
+and the build packs them into `Play.exe` as `SoA.Radio.a`, `.b`, `.c`; the
+launcher plays one at random, never the same twice running (a kit without
+the files is just quiet).
+
+Two things worth knowing when aiming:
+
+* Positions are the two floats at `+0x54`/`+0x58` of a unit, in world units on
+  a map of `[world+0x24]` by `[world+0x28]`. The player's own squad is the
+  pointer array at `[UIPlayer+0x78]`, and the `UIPlayer` is `[[0x875A84]+0x18]`
+  - the lists at `[0x875A60]+0x6C` and `+0x88` can hold another party's units,
+  so a position read from there may not be the player's.
+* The bunker's unit list keeps its category at `+0xC`: 0 is an aeroplane
+  (MiG-27, F-15), 1 a helicopter, the rest ground vehicles; the hangar panels
+  show 0 and 1, the workshop the others, and the strike keeps only 0.
+
+### The camera: two limits in a constructor, and why the wheel slid
+
+The mission camera is one `Y2KCamera` (vtable `0x7D3270`, its pointer in the
+global `0x8838E8`), built in `Y2KApp.cpp` at `0x6DC6E0`, and that constructor
+is where the zoom range lives: the height it may fly between is written as
+two immediates, `+0x5C = 2.0` and `+0x60 = 30.0`, with the clamp switched on
+at `+0x70`. The wheel does not go through any of the camera's own dolly
+functions (the `AirStrike`-style hooks that counted calls found none of them
+moving); the mission (`Y2KMission.cpp`) hands the event to the camera's input
+handler (vtable `+0x18`, `0x6DD770`), which moves the position along the view
+direction at `+0x24..+0x2C`, all three axes. The clamp (`0x6E0720`, called
+from Tick every frame) then puts only z back, so x and y keep the step and the
+camera slides across the map at either limit.
+
+`patch_exe.py --camera` sets the limits to 1.5 and 150 and routes both clamp
+branches through a few bytes in the zero padding at the end of `.text`
+(`0x7B45D0`) that first pull x and y back along the view direction by the same
+amount they pull z. The docstring of [tools/patch_exe.py](tools/patch_exe.py)
+has the listing. Finding all this took an afternoon of reading the wrong
+functions: `0x6DFE80` clamps a value at `+0x30` between 5 and 50 and looked
+like the zoom, but it is the free camera's, called every frame with zero.
+
+There is no key to move the camera faster - the speed of every motion is set
+where the motions are made (`0x6DCA1F`, 0.025 world units a millisecond for
+panning) and the input table has none. `patch_exe.py --fast-camera` adds one:
+where the camera loads the frame time to apply its motions (`0x6E062D`) a
+detour asks `GetKeyState(VK_SHIFT)` and multiplies the time by five while the
+key is down. The keys in the action table are Windows virtual-key codes
+(`AK_SELECTMODIFIER` is `VK_CONTROL`, `AK_COMMANDOSTACK` is `VK_SHIFT`), so the
+game hears its keys through Windows messages and `GetKeyState` sees them.
+
+Since launcher 1.20.1 every patch that is not the window shape or the intro -
+focus, the log, the camera, Shift, the character set - has a box of its own
+behind the *Patches* button, with what it does written next to it. The
+launcher carries the same signatures as `patch_exe.py`
+([tools/launcher/Patches.cs](tools/launcher/Patches.cs)) and writes the exe
+the moment a box is ticked, refusing while the game runs.
+
+### Pause and give orders: the "turn-based patch" that never shipped
+
+The readme of 1.0 mentions a separate download, *a patch to allow turn-based
+play - pause in single player and issue orders*. It never reached 1.1.2.178:
+the pause key (`AK_PAUSE`, 0x419, bound to P in the settings) puts the mission
+into state 0xD, the modal `MissionBreakPanel`, which swallows every click but
+the one that closes it.
+
+`patch_exe.py --active-pause` builds it the other way round. The mission's
+Tick (`0x5E9650`) hands the frame time to everything in turn - the landscape,
+the interface, the object manager, the rockets, the weather, the camera, the
+minimap, the message list, its own timers. A byte in the `.text` padding
+(`0x7B4680`, the section made writable for it) says whether the game is
+paused; where the Tick loads the time, a detour keeps the real value beside
+the byte and zeroes the register while it is set. Detours of their own give
+the real time back to the interface, the camera, the minimap, the message
+list - and to the player library inside the object manager's tick
+(`0x5A7DE3`, `Y2KKIPlayerLibrary`), which is where selection, the context menu
+and the path preview live; without that one the game froze properly but no
+menu opened. The pause key's single-player branch flips the byte instead of
+opening the panel; multiplayer keeps its own pause. Verified live: units are
+selected and ordered while everything stands, and move when time resumes.
+
+### A program at the controls
+
+With the pieces above a program can play, slowly: it reads the squad out of
+the UIPlayer (`[[0x875A84]+0x18]+0x78`), each unit's position at `+0x54` and
+the point it walks to at `+0x304`, photographs the screen (a GDI grab of the window) when it needs to look, and gives orders through the
+mailbox below. The first version clicked in the window instead (`mouse_event`:
+a left click selects, a right click on the ground sends the selected unit
+there) and measured the screen-to-world map from three arrivals; that worked
+to the unit but had to be measured again after every scroll.
+
+**What a right click does**, read off the UIPlayer's handler (`0x5DC7B0`): it
+asks `0x5DB0E0` what is under the mouse - objects through the landscape's
+`0x686640`, and if nothing, the terrain through `0x686A90` - and hands the
+first hit's world x and y to `0x5DAC80(this, x, y, released, mode, queue,
+flag)`, the order at a point. The terrain pick answers only near the centre
+of the screen when called from outside (its cell walk gives up on most rays;
+the game rarely needs it, since a click on open ground still hits the ground
+objects), so the projection is taken from the source instead: the view and
+projection matrices the game hands Direct3D, `GetTransform(2)` and `(3)` on
+the device at `[0x875B14]`. Unprojecting a screen point with them and cutting
+the ray with the ground plane matches the game's own pick at the centre to
+two decimals, and answers everywhere.
+
+**The mailbox** (`patch_exe.py --mailbox`) is how those calls are made
+safely: a request written into the padding of `.text` (`0x7B4750`: 1 = pick,
+2 = order at a world point, 3 = the two matrices) is served by a detour right
+after the mission has let the camera render (`0x5E93A1`), on the game's own
+thread - a foreign thread caught the matrices mid-frame and the pick answered
+once in nine tries. [tools/ui_inject.py](tools/ui_inject.py) writes the
+requests, [tools/play_bot.py](tools/play_bot.py) uses them: `--goto 400,850`
+sent the selected unit to (400.0, 850.0) exactly, with no mouse, no window and
+no focus involved.
+
+**Every other order is a virtual call on the unit** - one slot per
+`Commando_*` method of `CY2KKIBasicPartyObject`. The first reading of this
+table came from the context menu's button cases (`MissionKontextMenu.cpp`, the
+switch at `0x4CC6C5`) and named the slots by the buttons' order, which was
+wrong: `+0x384` is not *attack* but *throw the secondary weapon*, and the
+soldier who "set off with his weapon up" had been told to throw a grenade at
+the point. What settled it was the game's own trace: the mask at `0x861288`
+ORed with `0x40` makes every command log itself by name
+(`CY2KKIBasicPartyObject::Commando_ThrowSecondaryWeapon ID: 20055
+CommandoSource: CS_UI`), and each of those trace strings is referenced from
+exactly one function, which sits in exactly one slot of the `KIChar` vtable
+`0x7D66F4`:
+
+| order | slot | arguments |
+|---|---|---|
+| MoveTo | `+0x358` | `(x, y, mode, flag, source, queue)` - mode 3 is what a right click passes |
+| Attack Target | `+0x328` | `(object, flag, source, queue)` |
+| Attack Ground | `+0x324` | `(x, y, flag, source, queue)` |
+| StopMove / Wait | `+0x370` / `+0x374` | `(source, queue)` |
+| Kneel / LieDown / StandUp | `+0x378` / `+0x37C` / `+0x380` | `(source, queue)` |
+| GetIn / GetOut | `+0x344` / `+0x348` | `(object, source, queue)` / `(0, source, queue)` |
+| ThrowSecondaryWeapon | `+0x384` | `({target, x, y, 0, valid} by value, flag, source, queue)` |
+| ThrowSmoke | `+0x30C` | `(x, y, source, queue)` |
+| Reload | `+0x3A0` | `(source, queue)` |
+| UseEquipment (heal) | `+0x38C` | `(item, patient, source, queue)`, the medikit from `0x5860E0(unit, 0x80)` |
+| Approach `+0x320`, Patrol `+0x35C`, LootArea `+0x354`, PickUp `+0x360`, Prepare `+0x364`, PutDown `+0x368`, Exchange `+0x36C`, Escape `+0x33C`, Climb `+0x338`, Use `+0x398`, PlaceBomb `+0x31C`, StartBomb `+0x390`, CancelBomb `+0x394`, PlaceTransmitter `+0x39C`, Activate `+0x318`, Land `+0x350`, AllGetOut `+0x388`, UseFlamer `+0x310`, ChangeKIMode `+0x32C`, ChangeEquipment `+0x330`, ChangeInventory `+0x334` | | not tried |
+
+The source is 6 for `CS_UI`, the player; the queue flag is whether the order
+waits behind the current one (Shift held). Every one of them builds a
+command object (`0x5CA5F0`), stamps it with those two and hands it to
+`+0x2E8` (`0x580B40`), which drops it for a dead unit (`+0x17C` above zero),
+records it when the event recorder is on, sends it over the network in a
+network game, and otherwise executes it at once through `+0x204`
+(`0x580F00`). The unit remembers what it is doing at `+0x178`, the command's
+action number: 17 waiting, 10 moving, 7 kneeling, 2 attacking.
+
+Two things an attack will not do: reach a target the unit cannot see (the
+command is taken, the action reads 2, and the soldier stands where he is -
+what a right click on the fog cannot do either), and walk to a goal the path
+finder cannot reach (a `MoveTo` into the enemy camp from 350 units away is
+simply not walked; a leg that ends on open ground is). And one thing that
+takes the game down: an *Attack Target* with a unit address from a previous
+game - the object lists are rebuilt on every load, so addresses are only good
+for the mission they were read in.
+
+The mailbox's fourth request makes any such call: the object, the vtable
+offset, up to twelve arguments; [tools/play_bot.py](tools/play_bot.py) wraps
+the ones a plan needs (`move`, `attack`, `attack_ground`, `kneel`, ...).
+
+**Who is who in a mission.** `KIMission` at `[0x875A58]` keeps the
+`PlayerLibrary` at `+0x2C`, whose vector at `+0x20` holds every player - the
+`UIPlayer` (vtable `0x7CFE38`) and the AI players (`0x7CC3E4`) alike. A player
+has its number at `+0x20` (the party the map cells carry is that plus two),
+its units in the vector at `+0x78..+0x7C` (the dead are taken out of it), and
+its **diplomacy** as a `std::map<int, int>` at `+0x90`, player number to 0
+neutral, 1 enemy, 2 friend - the order the editor's `SetDiplomacy` names are
+matched in (`0x5578E4`); the scripted event sets it through `0x5C3680`. A
+player missing from the map is neutral. Read the other way round (0 enemy, 1
+friend, the natural guess from the first dump) it cost a squad: the "friends"
+at the monastery had a tank.
+
+A unit's **health** is at `+0xD0` (the most) and `+0xD4` (what is left), its
+armour at `+0xD8`/`+0xDC` (100/2500 on a tank, 0 on a soldier) - read off
+`ApplyDamage` (`0x57C950`), which goes through the virtual getters and
+setters `+0x7C`/`+0x84`/`+0xA8`/`+0xB0`/`+0xA4`/`+0xB4`; a `KIChar` adds the
+bonus of its `Y2KRPG_Character` at `+0x320` (rank at `+0x8`, experience at
+`+0xC`) on top. Its owner is at `+0x198`; a unit inside a vehicle stands at
+(-1e7, -1e7).
+
+**The first plan** (`play_bot.py --hunt`) is built on that: the squad runs
+in legs of a hundred units towards the nearest enemy soldier, tells everybody
+to attack him once he is within reach, and moves on to the next one when he
+is gone. The first version took the nearest enemy of any kind and lost the
+whole squad to a tank in the monastery courtyard - rifles do nothing to
+armour, so now a vehicle is never a target and a soldier standing within
+eighty units of one is left alone. That is the state of the art of this
+program's generalship; what it needs next is cover, the squad's own vehicles,
+and a reason to be anywhere.
+
+**Mission cheats from outside.** [tools/mission_cheat.py](tools/mission_cheat.py)
+does what the launcher's console does: finds the mission object in the heap
+(vtables `0x7D0568` and `0x7D0564` at `+8`) and calls the handler
+`0x5ECA70` with the line. `endlessmunition` and `immortalone` are *toggles* -
+cases 2 and 3 of the handler's switch (`0x5EE200`) flip the bytes at
+`0x875AA0` and `0x875A30`, which outlive the mission - so the tool reads the
+byte and only calls when it has to flip; a second blind call had turned the
+ammunition off again for a whole test.
+
+**Two ways to crash the game from outside**, both found the hard way: the
+stale unit address above, and the game's own screenshot call (`0x6031B0`) on
+a thread of our own while a menu or a dialog is up - DirectDraw
+`0x887602F8`, twice. Screenshots are now taken from outside (a GDI grab of
+the client rectangle), and [tools/menu_bot.py](tools/menu_bot.py) drives the
+menus on those: it waits for the screen to change instead of sleeping, and
+`--reload N` loads a save from inside a mission (Esc, Load, the row, OK).
+Faster still is no menu at all: `mission_cheat.py --load BombTest.sav` hands
+the save's full path to `0x5F2C10`, the method quick load calls with
+`QuickSave.sav` (what the launcher's `GameLink.LoadSave` does), and the
+mission is back in twenty-five seconds instead of fifty; a bunker save lands
+on the team screen, where two clicks (Automatic, Start Mission) remain. Only
+the first mission of a session still needs the main menu.
+
 ### The overlays need no command tree
 
 The cases turned out to be almost nothing. Every overlay builds an object that
@@ -670,6 +1020,15 @@ between two readings. So this is live line of sight, not a map that fills in
 as it is explored and stays filled - which is why a mission cannot be looked at
 as a whole through this array alone.
 
+One reading against that, from the play bot: in the BombTest mission the
+cells under enemy soldiers 370 units away, well out of anybody's sight,
+carried their party number (6) from the first second, and so did the cells
+under the monks. So the cells are not a sight test either, at least not
+there; what the counting above saw come and go may have been units moving
+rather than sight moving. A real test of what the player can see is still to
+be found - the `Landscape.ShowVisMap iX iY` command says a visibility map per
+player exists.
+
 That is what the Map window of the launcher draws
 ([tools/launcher/Map.cs](tools/launcher/Map.cs)): it copies the array out of
 the running game and paints it, so the map can be watched while the game is
@@ -718,7 +1077,7 @@ The two kinds of cheats need two different objects to be called on:
 |---|---|---|
 | table | `0x446DB8`, stride 0x10C | `0x85CF10`, stride 0x6C |
 | function | `0x52F4A0`, takes the string and a number | `0x5ECA70`, takes the whole line |
-| the object | the global `0x8759D4` | the mission, found in the heap |
+| the object | the global `0x8759D4` | the mission, `[0x875AA4]` (found in the heap before that global was) |
 | when it works | on the base screen | inside a mission |
 
 The base one is easy: `0x8759D4` holds the base screen while it is running and

@@ -139,3 +139,119 @@ member of a `.ubn` and a chunk of a `.mis` arrive through the same door.
 
 The reader itself lives in `Y2K_LS_Serialize.cpp`, at `0x681850`, `0x681950`,
 `0x681BB0` and `0x682050`; see [classes.md](classes.md).
+
+## The tail: what is mapped now
+
+Everything past the object table was one undivided "tail" - up to 2.7 MB of it
+in a campaign mission. Three things in it are now readable.
+
+**It opens with a 4x4 matrix** - where the camera starts - followed by
+`FF FF FF FF 01`, the serialiser's object prefix, the same one the saves use.
+
+**Then the parties**, one record each ending in a length-prefixed name. Their
+records shrink by eight bytes in turn: 116, 108, 100, 92, 84, 76, 68 in an eight
+party mission. That is what a triangular table of who stands with whom looks
+like - the first party needs a relation to seven others and the last to none -
+and it is the reason the record is not a fixed size.
+
+**Then the characters**, at a nearly fixed stride: 357 bytes in one mission, 417
+in another. Each is a length-prefixed name the mission author typed, then a zero
+byte, eight bytes of `0xFF`, and then a run of numbers. That signature is what
+makes them findable, and `mis.py --people` lists them:
+
+    0xD06     Mirek Ralenko        6    77     6    50    65    68     1     0
+    0xE69     Akim Boressenko      6    78     6    50    62    68     0     0
+
+Four of those numbers sit between 50 and 78 in every character of every mission
+looked at, which is what a skill out of a hundred looks like. Two more move
+together and by party, so they are more likely to say which face and body the
+man is drawn with.
+
+**One of them is named now.** The last is a **special skill**, an index into the
+seven the editor's own resources list, in this order:
+
+    0 light weapon   1 heavy weapon   2 demolition   3 sniper
+    4 heal           5 thief          6 athlet       7 none
+
+That order comes from `RES_EDITOR_QUICKSELECT_SPECIALSKILL_*` in `Editor.gui`,
+and it holds a small surprise: **the bunker's help text names only six**, leaving
+the thief out. The thief exists in the editor and is not among the things a
+soldier can be taught.
+
+Over 581 characters in every mission in the archive the field never leaves 0 to
+7. A soldier carries **two** special skills - the infirmary panel has
+`SPECIALSKILL1` and `SPECIALSKILL2` - and in versions 3 to 6 both sit at the end
+of the record. In 9 and 10 only the last is reliably placed, so `--people` names
+that one and leaves the other alone.
+
+**The alignment moves with the version.** Versions 9 and 10 carry one field more
+at the front, a constant 4, and everything behind it shifts. Read on the older
+alignment a skill lands where a number in the sixties belongs, and that is how
+the shift gave itself away.
+
+### The numbers in front, and what the code does with them
+
+`Y2KRPG_Character.cpp` - in a directory the compiler recorded as `UnbornStats` -
+is the class that reads these. Its reader at `0x603E90` takes them one dword at
+a time into the object at **+8, +0xC, +0x10, +0x14, +0x1C, +0x20, +0x24**, then a
+single byte at +0x28 and one more dword at +0x58. That is the file order, so the
+fifth, sixth and seventh numbers in the record are the object's `+0x1C`, `+0x20`
+and `+0x24`.
+
+**They are not fixed attributes.** The update at `0x6041C0` moves them up and
+down by small amounts as the game runs, according to flags on the same object:
+
+    if [+0x4C]   +0x1C += 2   +0x20 += 4
+    if [+0x50]   +0x1C += 1   +0x20 += 2
+    if [+0x48]   +0x1C -= 3
+    ...          +0x24 -= 5  or  += 5
+
+Two of them move together and always in the same direction, and a third flag
+lowers one of them on its own. Values in the sixties nudged by two and four, up
+when something is set and down when something else is, is what aim under a
+posture looks like - kneeling helps, being hurt does not.
+
+**That is as far as this goes and no further.** The game never shows these
+numbers to the player: nothing in any layout or text resource labels them, so
+there is no screen to read the answer off. Naming one of them accuracy would be
+a guess dressed as a finding, and this project has been caught by one of those
+before. What is established is where they live, in what order they are read, and
+that they are combat values the game adjusts rather than identity the author
+typed.
+
+The way to settle it is the one that has worked twice already in this project:
+read the code that loads them, rather than stare at the numbers.
+
+## The scripts, and reading a mission as prose
+
+Past the characters and the unnamed objects, the end of the tail holds what the
+mission author wrote. `mis.py --names` prints it in order, and mission one comes
+out like this:
+
+    base/start          large outpost       valley         waypoint east
+    small outpost       wolves and bear     holzlager      timer 1 .. Timer 8
+
+    start mission -> start tutorial dialog
+    end dialog -> start first ping
+    bear in small outpost killed -> wait 5 sec.
+    waited for 5 sec. -> tutorial dialog (3.)
+    entered large outpost -> 4. Dia
+    east box taken -> timer 5
+    valley destroyed -> mission won
+
+The first block is the **regions** drawn in the editor, timers among them. The
+second is the **scripts**, and their names are the designers' notes to
+themselves - read in order they are a plain-language account of how the mission
+works, arrows and all. After them come the dialogs each one plays and the music
+tracks: `CD Track 20.mp3`, `ambiente_abends.mp3`.
+
+**The encoding is not decoded.** A script record is short - the name, then a
+handful of numbers in the two thousands that reference the placed objects and
+the regions - and the numbering of the triggers and events is not among them
+anywhere obvious. `editor-scripting.md` has the 20 triggers and 42 events out of
+the executable, in the order they lie there; matching them to what the file
+stores is where this stops.
+
+What is usable today is the account in prose. For a mission nobody has
+documented in twenty years, being able to read `valley destroyed -> mission won`
+out of the file is worth more than it sounds.

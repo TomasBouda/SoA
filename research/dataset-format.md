@@ -66,6 +66,12 @@ The factory at `0x5BEA20` knows four types (`cmp eax, 3` and a jump table at
 
 ## Verified fields
 
+**What the fields mean is on [weapons.md](weapons.md)** - the damage of the
+ammunition (three ranges and a penetration threshold, read off `TakeDamage`
+at `0x57CDB0` and checked with the gun), the blast radius, the weapons'
+range and rate of fire, the vehicles' hit points and armour. The notes
+below are the earlier findings that page rests on.
+
 **Field 0 is the trade value.** In the loaded object it is member `+0x4C` and
 the trader multiplies exactly that one - the unit value function at `0x725C90`
 ends with `fmul dword ptr [eax + 0x4c]`, and three item classes expose the same

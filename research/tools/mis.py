@@ -11,6 +11,43 @@ The header and the terrain are understood, the object table is read as a fixed
 44-byte record, and everything past it is still unmapped - the tool reports it
 as "tail" so it is visible how much is left.
 
+What is now known of the tail
+-----------------------------
+It opens with a 4x4 matrix - where the camera starts - and the serialiser's
+`FF FF FF FF 01`, the same prefix the saves use.
+
+Then the **parties**, one record each, ending in a length-prefixed name. Their
+records shrink by eight bytes each in turn - 116, 108, 100, 92, 84, 76, 68 in
+an eight party mission - which is what a triangular table of who stands with
+whom looks like: the first party needs a relation to seven others, the last to
+none.
+
+Then the **characters**, at a nearly fixed stride - 357 bytes in one mission,
+417 in another. Each is a length-prefixed name, a zero byte, eight bytes of
+`FF`, and then eight numbers. Four of them sit between 50 and 78 across every
+character in every mission looked at, which is what a skill out of a hundred
+looks like; two more move together and by party, so they are more likely to be
+which face and body the man is drawn with. `--people` lists them.
+
+**The last number is one of the soldier's special skills**, an index into
+the seven the editor's own resources list - light weapon, heavy weapon,
+demolition, sniper, heal, thief, athlet - with an eighth meaning none. Over 581
+characters in every mission in the archive it never leaves that range once the
+version is accounted for.
+
+A soldier carries **two** of them - the infirmary panel has `SPECIALSKILL1` and
+`SPECIALSKILL2` - and in versions 3 to 6 both sit at the end of the record. In 9
+and 10 only the last one is reliably placed, so the reader names that one and
+leaves the other alone rather than inventing it.
+
+Versions 9 and 10 carry one field more at the front, a constant 4, which shifts
+everything behind it; read on the older alignment a skill lands where a number
+in the sixties belongs, and that is how the shift showed itself.
+
+**The four numbers in front of them are still unnamed.** They sit between 50 and
+78 and behave like ability out of a hundred, but calling one of them accuracy
+would be a guess. That wants the code that loads them.
+
     header      16 B magic, u32 version (3..10), u32 2, u32 sub-version
                 u32 width, u32 height, u32 party count   <- big endian
                 per party: u32 kind + a length-prefixed name
@@ -157,11 +194,88 @@ def summary_line(name, m):
                m['objects'], m['tail']))
 
 
+NAME_TAIL = bytes([0]) + bytes([0xFF]) * 8
+
+
+# The seven a soldier can have, in the order the editor's own resources list
+# them - RES_EDITOR_QUICKSELECT_SPECIALSKILL_* in Editor.gui - with NONE last.
+# The bunker's help text names only six of these; the thief is in the editor
+# and not in the list of what a soldier may be taught.
+SPECIAL_SKILLS = ('light weapon', 'heavy weapon', 'demolition', 'sniper',
+                  'heal', 'thief', 'athlet', 'none')
+
+
+def written_names(d, tail_at):
+    """The strings a mission author typed, in the order they were written.
+
+    Past the characters the tail holds the names of the regions drawn in the
+    editor - `base/start`, `valley`, `timer 1` - and then the scripts, whose
+    names the designers used as notes to themselves: `start mission -> start
+    tutorial dialog`, `bear in small outpost killed -> wait 5 sec.`. After those
+    come the dialogs and the music each event plays.
+
+    Read in order they are a plain-language account of how the mission works,
+    which is worth having on its own - the numbers around them, the ids the
+    scripts reference, are not decoded.
+
+    `unknown name` is what the engine calls everything nobody named, and the
+    TRES keys are the interface's, so neither is the author's writing.
+    """
+    out = []
+    i = tail_at
+    while i < len(d) - 1:
+        n = d[i]
+        if 4 <= n <= 64 and i + 1 + n <= len(d):
+            body = d[i + 1:i + 1 + n]
+            if all(32 <= c < 127 for c in body):
+                text = body.decode('latin1')
+                letters = sum(c.isalpha() or c in ' _-/.>' for c in text)
+                if (letters >= n * 0.8 and text != 'unknown name'
+                        and not text.startswith('TRES_')):
+                    out.append((i, text))
+                i += 1 + n
+                continue
+        i += 1
+    return out
+
+
+def people(d, tail_at, version=0):
+    """The characters in the tail: (offset, name, the eight numbers after it).
+
+    A name here is one a mission author typed - two words with a space between
+    them - and what confirms it is what follows: a zero byte, eight bytes of
+    0xFF, and then eight numbers. That signature is what tells a character from
+    an interface key and from four bytes of terrain that happen to read as
+    letters.
+    """
+    found = []
+    i = tail_at
+    while i < len(d) - 1:
+        n = d[i]
+        if 3 <= n <= 40 and i + 1 + n <= len(d):
+            body = d[i + 1:i + 1 + n]
+            named = (all(32 <= c < 127 for c in body)
+                     and body.count(32) == 1
+                     and body != b'Player')
+            after = i + 1 + n
+            if named and d[after:after + 9] == NAME_TAIL and after + 41 <= len(d):
+                found.append((i, body.decode('latin1'),
+                              struct.unpack_from('<8I', d, after + 9)))
+                i = after
+                continue
+        i += 1
+    return found
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('member', nargs='?')
     ap.add_argument('--ubn', default=ROOT_UBN)
     ap.add_argument('--ids', action='store_true', help='histogram of object indexes')
+    ap.add_argument('--names', action='store_true',
+                    help='the regions, scripts, dialogs and music the author named')
+    ap.add_argument('--people', action='store_true',
+                    help='the characters in the tail, with the numbers after each name')
     args = ap.parse_args()
 
     try:
@@ -185,7 +299,8 @@ def main():
     if not matches:
         raise SystemExit('no mission matches %r' % args.member)
     for n in matches:
-        m = parse(z.read(n))
+        d = z.read(n)
+        m = parse(d)
         print('=== %s' % n)
         print('  file          %d bytes' % m['size'])
         print('  version       %d (%d, %d)' % (m['version'], m['unknown'], m['sub']))
@@ -197,6 +312,25 @@ def main():
         print('  attributes    %s' % ', '.join('0x%08X x%d' % (k, v)
                                                for k, v in m['object_attrs'].most_common(4)))
         print('  unmapped tail %d bytes (units, characters, scripts)' % m['tail'])
+        if args.names:
+            got = written_names(d, len(d) - m['tail'])
+            print('')
+            print('  %d names the author wrote' % len(got))
+            for at, text in got:
+                print('    0x%-8X %s' % (at, text))
+        if args.people:
+            found = people(d, len(d) - m['tail'], m['version'])
+            print('')
+            print('  %d characters' % len(found))
+            for at, who, nums in found:
+                # Only the last field is named. A soldier carries two special
+                # skills and in versions 3 to 6 both sit at the end, but in 9
+                # and 10 the second is not reliably located yet, so naming it
+                # would be inventing one.
+                v = nums[-1]
+                skills = SPECIAL_SKILLS[v] if v < len(SPECIAL_SKILLS) else '?'
+                print('    0x%-7X %-22s %s   %s'
+                      % (at, who, '  '.join('%4d' % v for v in nums[:-2]), skills))
         if args.ids:
             print('  object indexes: %s'
                   % ', '.join('%d x%d' % (k, v) for k, v in m['object_ids'].most_common(20)))

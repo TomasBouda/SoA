@@ -35,6 +35,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -123,6 +124,20 @@ internal sealed class MapWindow : Window
 
     private GameLink.MapSnapshot _map;
 
+    // Armed, the next click on the map calls the air strike on that point
+    // instead of starting a drag. It disarms itself after one strike, and Esc
+    // disarms it, so a stray click cannot bomb the party twice.
+    private bool _strikeArmed;
+    private Button _strike;
+    private TextBlock _note;
+
+    // Where the bombs were sent, so the map can show it. A marker stays for
+    // about as long as the plane is out - it comes back to the hangar after
+    // half a minute or so - and then goes on its own.
+    private struct Strike { public float X, Y; public DateTime When; }
+    private readonly List<Strike> _strikes = new List<Strike>();
+    private static readonly TimeSpan StrikeShown = TimeSpan.FromSeconds(45);
+
     public MapWindow()
     {
         Title = "Mission map";
@@ -136,6 +151,7 @@ internal sealed class MapWindow : Window
         // than it could - often enough to watch the party move, rare enough not
         // to be a cost.
         InputBindings.Add(new KeyBinding(new Command(Copy), Key.C, ModifierKeys.Control));
+        InputBindings.Add(new KeyBinding(new Command(() => ArmStrike(false)), Key.Escape, ModifierKeys.None));
 
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
         timer.Tick += (s, e) => Refresh();
@@ -165,8 +181,8 @@ internal sealed class MapWindow : Window
         header.Children.Add(new TextBlock
         {
             Text = "What the engine walks on, read straight out of the running game. "
-                 + "Nothing is written back. Units show only where the party can see "
-                 + "right now.",
+                 + "Nothing is written back, unless you arm the air strike. Units show "
+                 + "only where the party can see right now.",
             Foreground = Dim,
             FontSize = 11,
             Margin = new Thickness(0, 3, 0, 10)
@@ -204,6 +220,13 @@ internal sealed class MapWindow : Window
         Tool(tools, "Copy", "The whole map to the clipboard, at full size (Ctrl+C)", Copy);
         Tool(tools, "Rescan", "Look for units again - they are only searched for "
                             + "every ten seconds", () => Scan(true));
+        // The strike is a research toy and it is armed on purpose: one click
+        // to arm, one on the map to bomb, and the party is the likeliest thing
+        // under the pointer.
+        _strike = Tool(tools, "Air strike", "Arms an air strike: the next click on the map "
+                                           + "sends a plane from the hangar to bomb that point. "
+                                           + "Needs a MiG with bombs in the hangar.",
+                       () => ArmStrike(!_strikeArmed));
         tools.Children.Add(new TextBlock
         {
             Text = "wheel zooms, dragging moves",
@@ -245,6 +268,12 @@ internal sealed class MapWindow : Window
         };
         _view.PreviewMouseLeftButtonDown += (s, e) =>
         {
+            if (_strikeArmed)
+            {
+                StrikeAt(e.GetPosition(_image));
+                e.Handled = true;
+                return;
+            }
             if (e.ClickCount >= 2)
             {
                 // A double click opens the unit under it rather than starting
@@ -289,14 +318,16 @@ internal sealed class MapWindow : Window
             FontFamily = new FontFamily("Consolas"),
             Margin = new Thickness(0, 2, 0, 0),
         };
+        _note = new TextBlock { Foreground = Accent, FontSize = 11, Margin = new Thickness(0, 2, 0, 0) };
         bottom.Children.Add(_status);
         bottom.Children.Add(_hover);
+        bottom.Children.Add(_note);
         Grid.SetRow(bottom, 4);
         root.Children.Add(bottom);
         return root;
     }
 
-    private void Tool(Panel into, string text, string tip, Action click)
+    private Button Tool(Panel into, string text, string tip, Action click)
     {
         var button = new Button
         {
@@ -313,6 +344,74 @@ internal sealed class MapWindow : Window
         };
         button.Click += (s, e) => click();
         into.Children.Add(button);
+        return button;
+    }
+
+    // ------------------------------------------------------------ the strike
+
+    private void ArmStrike(bool armed)
+    {
+        _strikeArmed = armed;
+        _strike.Foreground = armed ? Bad : Dim;
+        _strike.BorderBrush = armed ? Bad : Line;
+        _note.Text = armed
+            ? "armed - click the map to bomb that point; Esc puts it away"
+            : "";
+        _note.Foreground = Accent;
+    }
+
+    /// Calls the air strike on the point under the pointer, once, and disarms.
+    private void StrikeAt(Point where)
+    {
+        ArmStrike(false);
+        GameLink.MapSnapshot map = _map;
+        if (map == null || _image.ActualWidth <= 0) return;
+        float x = (float)(where.X / _image.ActualWidth * map.Width);
+        float y = (float)(where.Y / _image.ActualHeight * map.Height);
+        if (x < 0 || y < 0 || x >= map.Width || y >= map.Height) return;
+        uint answer;
+        string bad = GameLink.AirStrike(x, y, out answer);
+        _note.Text = bad ?? string.Format(CultureInfo.InvariantCulture,
+            "a plane is on its way to {0}, {1} - one bomb, and it lands back in the hangar after",
+            (int)x, (int)y);
+        _note.Foreground = bad == null ? Accent : Bad;
+        if (bad != null) return;
+        _strikes.Add(new Strike { X = x, Y = y, When = DateTime.Now });
+        Radio.Call();
+        Paint();
+    }
+
+    /// The target of every strike still in the air: a ring with a cross
+    /// through it, drawn last so nothing covers it. Two units wide so it
+    /// survives the window showing the map at half size.
+    private void PaintStrikes(uint[] pixels, GameLink.MapSnapshot map)
+    {
+        _strikes.RemoveAll(s => DateTime.Now - s.When > StrikeShown);
+        const uint colour = 0xFFE06C60;
+        foreach (Strike strike in _strikes)
+        {
+            int cx = (int)strike.X, cy = (int)strike.Y;
+            for (int d = -12; d <= 12; d++)
+            {
+                if (Math.Abs(d) < 4) continue;          // the middle stays open
+                for (int t = 0; t <= 1; t++)
+                {
+                    Plot(pixels, map, cx + d, cy + t, colour);
+                    Plot(pixels, map, cx + t, cy + d, colour);
+                }
+            }
+            for (double a = 0; a < Math.PI * 2; a += 0.05)
+            {
+                Plot(pixels, map, cx + (int)Math.Round(Math.Cos(a) * 8), cy + (int)Math.Round(Math.Sin(a) * 8), colour);
+                Plot(pixels, map, cx + (int)Math.Round(Math.Cos(a) * 9), cy + (int)Math.Round(Math.Sin(a) * 9), colour);
+            }
+        }
+    }
+
+    private static void Plot(uint[] pixels, GameLink.MapSnapshot map, int x, int y, uint colour)
+    {
+        if (x < 0 || y < 0 || x >= map.Width || y >= map.Height) return;
+        pixels[y * map.Width + x] = colour;
     }
 
     // ------------------------------------------------------- zoom and copying
@@ -629,6 +728,7 @@ internal sealed class MapWindow : Window
                 }
             }
         }
+        if (_strikes.Count > 0) PaintStrikes(pixels, map);
         _bitmap.WritePixels(new Int32Rect(0, 0, map.Width, map.Height), pixels, map.Width * 4, 0);
     }
 
@@ -695,6 +795,40 @@ internal sealed class MapWindow : Window
             what.Add("height " + (int)HeightAt(map, x, y));
         _hover.Text = string.Format("{0,3} {1,3}   {2:X8}   {3}", x, y, cell,
                                     string.Join(", ", what.ToArray()));
+    }
+}
+
+/// The radio call that goes with an air strike. The game has no chatter of
+/// its own - its sounds are engines, bombs and explosions - so the build packs
+/// the ones made by tools/radio_clip.py into the exe as SoA.Radio.a, .b, .c:
+/// an observer calling the strike and the pilot answering, through a radio's
+/// narrow band. One is picked at random, and not the one played last, so two
+/// strikes in a row never say the same thing. It plays on the Windows side,
+/// over whatever the game is doing, and a kit built without the clips simply
+/// stays quiet.
+internal static class Radio
+{
+    private const string Prefix = "SoA.Radio.";
+    private static readonly Random Dice = new Random();
+    private static string _last;
+
+    public static void Call()
+    {
+        try
+        {
+            var names = new List<string>();
+            foreach (string name in typeof(Radio).Assembly.GetManifestResourceNames())
+                if (name.StartsWith(Prefix, StringComparison.Ordinal) && name != _last) names.Add(name);
+            if (names.Count == 0 && _last != null) names.Add(_last);
+            if (names.Count == 0) return;
+            string chosen = names[Dice.Next(names.Count)];
+            _last = chosen;
+            System.IO.Stream stream = typeof(Radio).Assembly.GetManifestResourceStream(chosen);
+            if (stream == null) return;
+            var player = new System.Media.SoundPlayer(stream);
+            player.Play();      // asynchronous; the stream is read on this thread first
+        }
+        catch { }
     }
 }
 

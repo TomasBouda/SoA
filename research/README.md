@@ -11,6 +11,7 @@ behavior.md                behavioural analysis of the running game (a malware c
 cheats.md                  cheats and console commands
 object-ids.md              object identifiers with their ordinal numbers
 dataset-format.md          the format of Data.set, the library of gear and ammo
+weapons.md                 what every round, weapon and vehicle does in numbers: damage, blast radius, armour, range
 trading.md                 what an item is worth and what the trader demands
 missions.md                the structure of the mission files (.mis)
 editor.md                  the mission editor the game still carries, and how to reach it
@@ -24,6 +25,8 @@ tools/dataset.py           parser for Data.set
 tools/mis.py               reader for the mission files (.mis)
 tools/gen_editor_docs.py   generator of the mission editor reference
 tools/gen_ids_doc.py       generator of the identifier lists
+tools/gen_weapons_doc.py   writes weapons.md - damage, blast radius, armour, range, out of Data.set
+tools/gen_weapons_web.py   the same as one web page with the game's pictures, sortable (the Arsenal artifact)
 tools/gen_catalog.py       generator of the launcher catalog (items, names, images)
 tools/list_ids.py          prints the identifiers to the console
 tools/map_exe.py           maps the code to the original source files
@@ -41,6 +44,14 @@ tools/fix_sounds.py        the fix for the missing hit sounds
 tools/fix_missing_sounds.py  fills in the sounds that were never shipped
 tools/scan_memory.py       searching for values in the memory of the running game
 tools/trainer_inject.py    calls the base cheat inside the game process
+tools/airstrike_inject.py  calls an air strike on a point of the running mission
+tools/play_bot.py          a program that plays: the squad, the enemies, the orders, a first plan
+tools/ui_inject.py         the mailbox: what is under a screen point, orders, the matrices - asked of the game
+tools/menu_bot.py          clicks the game from its menus into a saved game
+tools/mission_cheat.py     the mission cheats (endlessmunition ...) and loading a save, with no menu
+tools/add_sounds.py        puts sounds of our own into sounds.ubn, by hand, so the game finds them by name
+tools/launch_game.ps1      starts the game through the launcher, windowed, and waits for soa.exe
+tools/radio_clip.py        makes the radio call the launcher plays with it
 tools/decode_error.py      translates the HRESULT codes from tracefile.log
 tools/extract_icon.py      pulls the icon out of a PE file into an .ico
 tools/monitor-run.ps1      behavioural analysis of the running game
@@ -48,6 +59,7 @@ tools/build-package.ps1    builds the standalone package that runs without a san
 tools/launcher/App.cs      the launcher in C#, sets the resolution from the desktop
 tools/launcher/Saves.cs    the saves window: what is in a save, without loading it
 tools/launcher/Catalog.cs  the base catalog for adding gear and vehicles
+tools/launcher/Patches.cs  the patches window: the changes in soa.exe, each with a box to switch it
 tools/sandbox/             verification of the package on clean Windows
 tools/upscale_textures.py  enlarging the object textures
 tools/upscale_terrain.py   enlarging the terrain textures
@@ -109,8 +121,9 @@ python tools/trs.py ../_patched/data.ubn TRES_OBJECTS
 ## What turned up along the way
 
 - **Air support.** The game carries models of the MiG-23 (`Flogger`) and the
-  MiG-29 (`Fulcrum`) and the exe holds the string `order air strike`, even
-  though you never fly yourself.
+  MiG-29 (`Fulcrum`), and they are not decoration: a plane with bombs in the
+  hangar enables the *Air Strike* button of the mission context menu, see
+  [architecture.md](architecture.md). You never fly it, it flies for you.
 - **UnbornKnight.** Among the characters there is a model called `UnbornKnight`
   and among the events `KnightCamouflageState` — *"change knight camouflage
   state"*. So it is a real game entity with camouflage, not a forgotten

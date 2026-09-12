@@ -555,6 +555,8 @@ internal sealed class ConsoleWindow : Window
         yield return new KeyValuePair<string, string>(
             "heightmap", "writes the terrain as a grey picture - heightmap(name) to choose one");
         yield return new KeyValuePair<string, string>(
+            "airstrike(", "airstrike(x, y) bombs that point of the map - needs a plane with bombs in the hangar");
+        yield return new KeyValuePair<string, string>(
             "replay", "says whether the game built itself a replay system");
         yield return new KeyValuePair<string, string>("quicksave", "into QuickSave.sav");
         yield return new KeyValuePair<string, string>("quickload", "from QuickSave.sav");
@@ -1003,6 +1005,30 @@ internal sealed class ConsoleWindow : Window
             Add("  heights stretched between " + low.ToString(CultureInfo.InvariantCulture)
                 + " and " + high.ToString(CultureInfo.InvariantCulture)
                 + " - heightmap(name, low, high) to change that.", Dim);
+            return;
+        }
+
+        if (name.Equals("airstrike", StringComparison.OrdinalIgnoreCase))
+        {
+            // The point is in world units, the ones the map window shows in
+            // its hover line - so a strike can be aimed by reading it off
+            // there, or by clicking there with the strike armed.
+            string[] parts = (argument ?? "").Split(',');
+            float x, y;
+            if (parts.Length != 2
+                || !float.TryParse(parts[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out x)
+                || !float.TryParse(parts[1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out y))
+            {
+                Add("  airstrike(x, y) - the point in world units, as the map window shows them.", Bad);
+                return;
+            }
+            uint answer;
+            string bad = GameLink.AirStrike(x, y, out answer);
+            if (bad != null) { Add("  " + bad, Bad); return; }
+            Add(string.Format(CultureInfo.InvariantCulture,
+                              "  a plane is on its way to {0}, {1} - one bomb; it lands back in the hangar after.",
+                              x, y), Mine);
+            Radio.Call();
             return;
         }
 

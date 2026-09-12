@@ -375,6 +375,10 @@ internal sealed class LauncherWindow : Window
             "The game's 3D models, read out of objects.ubn and drawn with their "
             + "own textures",
             OpenModels), Dock.Left);
+        Place(row, ToolButton("Patches",
+            "The changes made to soa.exe - focus, the log, the camera, the fonts - "
+            + "each with a box to switch it on or off",
+            OpenPatches), Dock.Left);
 
         _findGame = ToolButton("Find the game...",
             "Point the launcher at soa.exe. Only needed when the game is not in "
@@ -491,6 +495,13 @@ internal sealed class LauncherWindow : Window
         foreach (Window w in Application.Current.Windows)
             if (w is CatalogWindow) { w.Activate(); return; }
         new CatalogWindow().Show();
+    }
+
+    private void OpenPatches()
+    {
+        foreach (Window w in Application.Current.Windows)
+            if (w is PatchesWindow) { w.Activate(); return; }
+        new PatchesWindow(_exe).Show();
     }
 
     private void OpenMap()
@@ -745,7 +756,7 @@ internal sealed class LauncherWindow : Window
             bool othersOpen = false;
             foreach (Window w in Application.Current.Windows)
                 if (w is CatalogWindow || w is ConsoleWindow || w is MapWindow
-                    || w is SavesWindow || w is ModelsWindow)
+                    || w is SavesWindow || w is ModelsWindow || w is PatchesWindow)
                     othersOpen = true;
             if (othersOpen) Application.Current.ShutdownMode = ShutdownMode.OnLastWindowClose;
 
@@ -794,99 +805,38 @@ internal sealed class LauncherWindow : Window
     // Whether the game runs in a window is not a setting - it is decided inside
     // soa.exe by the flag at +0xC5 of the application object, which picks the
     // style passed to CreateWindowEx. That one follows the mode picked here and
-    // goes both ways. Two more are written whatever the mode is: the game
-    // minimises itself on WM_KILLFOCUS, and it opens its log with no sharing.
-    // tools/patch_exe.py explains all three and does the same from the command
-    // line.
+    // goes both ways. tools/patch_exe.py explains it and does the same from
+    // the command line.
     //
     // The size of the window is not among them: the game only resizes it in the
     // full screen path, and the rectangle it uses there is the whole monitor.
-    private struct BytePatch
-    {
-        public byte[] Anchor, Original, Patched;
-    }
-
+    //
     // mov byte ptr [ebp+0xC5], 1  ->  0 : an overlapped window, not a popup.
     // This one follows the mode picked in the launcher, both ways.
-    private static readonly BytePatch WindowShapePatch = new BytePatch
+    private static readonly PatchSite WindowShapePatch = new PatchSite
     {
         Anchor = new byte[] { 0x8D, 0x85, 0x9C, 0x00, 0x00, 0x00,
                               0xC6, 0x85, 0xC5, 0x00, 0x00, 0x00 },
+        Offset = -1, Count = 1,
         Original = new byte[] { 0x01 },
         Patched = new byte[] { 0x00 },
-    };
-
-    // The two that go in whatever mode is picked, because nobody wants them the
-    // way the game has them:
-    //
-    //   jne over ShowWindow(SW_MINIMIZE)  ->  jmp, so the game stays open when
-    //     it loses focus, and the same for the second place it does it - the
-    //     deactivation branch of the window procedure, where je becomes a nop
-    //     and a jmp of the same length. That second one is the full screen
-    //     path, and it is what drops the game into the taskbar the moment
-    //     anything else is clicked - the console window of the launcher
-    //     included.
-    //   push 0 -> push 1 (FILE_SHARE_READ) in the CreateFileA that opens the
-    //     log, so it can be read while the game writes it. The game only ever
-    //     writes, so it does not care.
-
-    private static readonly BytePatch[] AlwaysPatches =
-    {
-        new BytePatch {
-            Anchor = new byte[] { 0x83, 0xFD, 0x08, 0x57, 0x8B, 0xF1 },
-            Original = new byte[] { 0x75 }, Patched = new byte[] { 0xEB } },
-        new BytePatch {
-            Anchor = new byte[] { 0x6A, 0xF0, 0x52, 0xFF, 0x15, 0x6C, 0x62, 0x7B, 0x00,
-                                  0x38, 0x9E, 0xC5, 0x00, 0x00, 0x00 },
-            Original = new byte[] { 0x0F, 0x84 }, Patched = new byte[] { 0x90, 0xE9 } },
-        new BytePatch {
-            Anchor = new byte[] { 0x68, 0x80, 0x00, 0x00, 0x00, 0x6A, 0x02, 0x6A, 0x00 },
-            Original = new byte[] { 0x6A, 0x00 }, Patched = new byte[] { 0x6A, 0x01 } },
     };
 
     // A jump over the three videos the game queues at startup - the two logos
     // and the intro - so it goes straight to the menu. This one follows a box
     // in the launcher, because somebody may want to watch them.
-    private static readonly BytePatch IntroPatch = new BytePatch
+    //
+    // The rest of the patches - focus, the log, the camera, the character set
+    // - are in Patches.cs, behind the Patches button, each with its own box.
+    private static readonly PatchSite IntroPatch = new PatchSite
     {
         Anchor = new byte[] { 0xC7, 0x00, 0xF8, 0x86, 0x7C, 0x00, 0x89, 0x58, 0x14,
                               0x89, 0x58, 0x18, 0xA3, 0xFC, 0x5A, 0x87, 0x00,
                               0x8B, 0xF0, 0xEB, 0x02, 0x33, 0xF6 },
+        Offset = -1, Count = 1,
         Original = new byte[] { 0x8A, 0x44, 0x24, 0x13, 0x83 },
         Patched = new byte[] { 0xE9, 0xAC, 0x00, 0x00, 0x00 },
     };
-
-    private static bool Matches(byte[] data, int pos, byte[] want)
-    {
-        for (int i = 0; i < want.Length; i++)
-            if (data[pos + i] != want[i]) return false;
-        return true;
-    }
-
-    /// Where a patch sits, or -1 when the signature is missing or not unique.
-    private static int FindPatch(byte[] data, BytePatch p)
-    {
-        // soa.exe is four megabytes and this runs while the launcher is
-        // starting, so the search jumps to the next occurrence of the first
-        // byte instead of asking about every one of them. That alone is most
-        // of the launcher's startup time.
-        int found = -1;
-        int last = data.Length - p.Anchor.Length - Math.Max(p.Original.Length, p.Patched.Length);
-        byte first = p.Anchor[0];
-        int at = 0;
-        while (at <= last)
-        {
-            int i = Array.IndexOf(data, first, at, last - at + 1);
-            if (i < 0) break;
-            at = i + 1;
-            if (!Matches(data, i, p.Anchor)) continue;
-            int pos = i + p.Anchor.Length;
-            if (!Matches(data, pos, p.Original) && !Matches(data, pos, p.Patched)) continue;
-            if (found >= 0) return -1;
-            found = pos;
-        }
-        return found;
-    }
 
     /// The window mode, for anything outside this window that needs it - the
     /// self test runs the game windowed so it does not take the screen.
@@ -905,8 +855,8 @@ internal sealed class LauncherWindow : Window
         {
             if (!File.Exists(exePath)) return true;
             byte[] data = File.ReadAllBytes(exePath);
-            int pos = FindPatch(data, IntroPatch);
-            return pos < 0 || Matches(data, pos, IntroPatch.Patched);
+            int pos = Patches.Find(data, IntroPatch);
+            return pos < 0 || Patches.Matches(data, pos, IntroPatch.Patched);
         }
         catch (Exception) { return true; }
     }
@@ -919,8 +869,8 @@ internal sealed class LauncherWindow : Window
         {
             if (!File.Exists(exePath)) return false;
             byte[] data = File.ReadAllBytes(exePath);
-            int pos = FindPatch(data, WindowShapePatch);
-            return pos >= 0 && Matches(data, pos, WindowShapePatch.Patched);
+            int pos = Patches.Find(data, WindowShapePatch);
+            return pos >= 0 && Patches.Matches(data, pos, WindowShapePatch.Patched);
         }
         catch (Exception) { return false; }
     }
@@ -934,32 +884,24 @@ internal sealed class LauncherWindow : Window
         catch (Exception ex) { return ex.Message; }
 
         bool changed = false;
-        int shape = FindPatch(data, WindowShapePatch);
+        int shape = Patches.Find(data, WindowShapePatch);
         if (shape < 0) return "this is not the build of soa.exe we know";
         byte[] wanted = windowed ? WindowShapePatch.Patched : WindowShapePatch.Original;
-        if (!Matches(data, shape, wanted))
+        if (!Patches.Matches(data, shape, wanted))
         {
             Array.Copy(wanted, 0, data, shape, wanted.Length);
             changed = true;
         }
 
-        int intro = FindPatch(data, IntroPatch);
+        int intro = Patches.Find(data, IntroPatch);
         if (intro < 0) return "this is not the build of soa.exe we know";
         byte[] wantedIntro = skipIntro ? IntroPatch.Patched : IntroPatch.Original;
-        if (!Matches(data, intro, wantedIntro))
+        if (!Patches.Matches(data, intro, wantedIntro))
         {
             Array.Copy(wantedIntro, 0, data, intro, wantedIntro.Length);
             changed = true;
         }
 
-        foreach (BytePatch p in AlwaysPatches)
-        {
-            int pos = FindPatch(data, p);
-            if (pos < 0) return "this is not the build of soa.exe we know";
-            if (Matches(data, pos, p.Patched)) continue;
-            Array.Copy(p.Patched, 0, data, pos, p.Patched.Length);
-            changed = true;
-        }
         if (!changed) return null;
         try { File.WriteAllBytes(exePath, data); }
         catch (Exception ex) { return ex.Message; }

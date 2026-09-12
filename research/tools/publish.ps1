@@ -69,6 +69,9 @@ $rules = @(
     # that only our own work is published, and it is deliberate.
     @{ from = '_research\tools\launcher\catalog'; to = 'research\tools\launcher\catalog'; files = '*.png' }
     @{ from = '_research\tools\sandbox';    to = 'research\tools\sandbox';   files = @('*.ps1', '*.cmd', '*.md', 'sandbox.template') }
+    # Our own pictures: frames of the game with the patches at work and the
+    # launcher's windows, what the Arsenal page and the docs show.
+    @{ from = '_research\pictures';         to = 'research\pictures';        files = @('*.png', '*.jpg') }
     @{ from = '_research\translation';      to = 'research\translation';     files = @('cs.tsv', 'glossary.md') }
     @{ from = 'analysis';                   to = 'analysis';                 files = '*.py' }
     @{ from = '_sandbox';                   to = 'sandbox';                  files = @('*.ps1', '*.cmd', '*.wsb') }
@@ -142,7 +145,7 @@ Say "$($wanted.Count) files may be published"
 # public repository out with CRLF and this one keeps LF, so a raw comparison
 # calls every text file changed and each publish would be seventy-odd files of
 # noise with the real change buried in it.
-$binary = @('.png', '.ico', '.zip', '.pth')
+$binary = @('.png', '.jpg', '.ico', '.zip', '.pth')
 function Same([string]$a, [string]$b) {
     if ([IO.Path]::GetExtension($a).ToLower() -in $binary) {
         return (Get-FileHash $a -Algorithm SHA256).Hash -eq (Get-FileHash $b -Algorithm SHA256).Hash

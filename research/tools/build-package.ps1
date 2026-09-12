@@ -279,11 +279,24 @@ if (-not $wantOurChanges) {
 else {
     $patcher = Join-Path $PSScriptRoot 'patch_exe.py'
     if (Test-Path $patcher) {
-        & py -3 $patcher --exe $exe --fullscreen --no-intro --keep-focus --share-log | Out-Null
+        & py -3 $patcher --exe $exe --fullscreen --no-intro --keep-focus --share-log --camera --fast-camera --active-pause --mailbox --airstrike-menu | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'putting soa.exe into a known state failed' }
-        Say 'soa.exe set to full screen, no intro, keeps focus, shared log' 'OK'
+        Say 'soa.exe set to full screen, no intro, keeps focus, shared log, free and fast camera, active pause, mailbox, air strike in the menu' 'OK'
     }
     else { Say 'patch_exe.py not found, soa.exe goes in as it was found' 'WARN' }
+
+    # The radio calls the air strike button plays go into sounds.ubn: the
+    # game finds a sound by its bare name in the archive's directory, and a
+    # new loose file is not found at all. add_sounds.py appends by hand and
+    # skips what is already there. The source's own archive stays as it was
+    # shipped - the clips are the package's, put in here every build.
+    $adder = Join-Path $PSScriptRoot 'add_sounds.py'
+    $clips = Get-ChildItem (Join-Path $PSScriptRoot 'launcher') -Filter 'radio_airstrike_*.wav' | ForEach-Object { $_.FullName }
+    if ((Test-Path $adder) -and $clips) {
+        & py -3 $adder (Join-Path $game 'sounds.ubn') 'sounds/InGame/misc' @clips | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'putting the radio calls into sounds.ubn failed' }
+        Say "radio calls in sounds.ubn ($($clips.Count) clips, sounds/InGame/misc)" 'OK'
+    }
 }
 
 $n = (Get-ChildItem $game -Recurse -File).Count
@@ -393,6 +406,7 @@ $src = @((Join-Path $PSScriptRoot 'launcher\App.cs'),
          (Join-Path $PSScriptRoot 'launcher\Models.cs'),
          (Join-Path $PSScriptRoot 'launcher\ModelsWindow.cs'),
          (Join-Path $PSScriptRoot 'launcher\Map.cs'),
+         (Join-Path $PSScriptRoot 'launcher\Patches.cs'),
          (Join-Path $PSScriptRoot 'launcher\Remote.cs'),
          (Join-Path $PSScriptRoot 'launcher\Saves.cs'),
          (Join-Path $PSScriptRoot 'launcher\SelfTest.cs'),
@@ -440,6 +454,13 @@ foreach ($r in 'PresentationFramework.dll', 'PresentationCore.dll', 'WindowsBase
 # window and the taskbar as well, because the launcher sets no Icon of its own.
 $icon = Join-Path $PSScriptRoot 'launcher\soa.ico'
 if ($catalogZip) { $cscArgs += "/resource:$catalogZip,SoA.Catalog" }
+# The radio calls the air strike plays, made by radio_clip.py - one resource
+# per variant, SoA.Radio.a, SoA.Radio.b and so on, and the launcher picks one
+# at random. Without any the strike is silent, which is not an error.
+foreach ($radio in Get-ChildItem (Join-Path $PSScriptRoot 'launcher') -Filter 'radio_airstrike_*.wav') {
+    $radioName = $radio.BaseName.Substring('radio_airstrike_'.Length)
+    $cscArgs += "/resource:$($radio.FullName),SoA.Radio.$radioName"
+}
 if (Test-Path $icon) { $cscArgs += "/win32icon:$icon" }
 else { Say 'launcher\soa.ico is missing, Play.exe will have no icon' 'WARN' }
 $cscArgs += $src

@@ -118,7 +118,12 @@ def check_patches(exe, failures):
     for group, name, anchor, original, patched in patch_exe.PATCHES:
         found = 0
         start = 0
-        while True:
+        if isinstance(anchor, int):
+            # A place in the padding, given by offset: there is nothing to be
+            # unique about, only the bytes to be what they should.
+            found = 1 if bytes(data[anchor:anchor + len(original)]) in (original, patched) else 0
+            anchor = None
+        while anchor is not None:
             i = data.find(anchor, start)
             if i < 0:
                 break
@@ -131,6 +136,24 @@ def check_patches(exe, failures):
             failures.append(name)
     if not failures:
         say('%d patch signatures, each unique' % len(patch_exe.PATCHES), 'OK')
+
+    # The launcher carries the same table in C# (Patches.cs), typed in by
+    # hand, and once drifted: a cave regenerated in patch_exe.py and not
+    # copied over left the launcher showing the mailbox as off and ready
+    # to write the old bytes. Every group the launcher knows has to hold
+    # patch_exe's bytes exactly. (window, focus, intro and log live in
+    # App.cs and are checked through the addresses above.)
+    import re
+    cs = open(os.path.join(HERE, 'launcher', 'Patches.cs'), encoding='utf-8').read()
+    hexes = set(re.findall(r'"([0-9A-F]{8,})"', cs))
+    stale = [name for group, name, anchor, original, patched in patch_exe.PATCHES
+             if group not in ('window', 'focus', 'intro', 'log')
+             and (original.hex().upper() not in hexes or patched.hex().upper() not in hexes)]
+    for name in stale:
+        say('Patches.cs does not hold the bytes of "%s" - the launcher is out of step' % name, 'FAIL')
+    failures.extend(stale)
+    if not stale:
+        say('the launcher and patch_exe.py hold the same bytes', 'OK')
 
     # The round trip: on a copy, so the real exe is never touched. Which way
     # round each group starts is read off the file first, so that the copy ends

@@ -221,22 +221,74 @@ relied on anywhere.
   So the geometry is already in one shared space, and the per-node matrix is
   presumably for the parts that move rather than for putting them where they
   belong. That is worth knowing before anybody spends an afternoon on it.
-* **The animations, and they are not solved.** A character has one file per
-  movement - `gehen_joggen`, `STEHEN_GESTE` - at up to 1.9 MB. Read as a model,
-  a file gives up one pose: `stehen_geste` yields three meshes called `berret`,
-  `main` and `nachtsicht`, which is a soldier in a beret with a night sight, and
-  a running antelope gives one mesh of 428 vertices. **Everything after that
-  mesh is the animation and it has not been decoded.**
+## The animation tracks
 
-  What is measured, so the next attempt starts further along: the block opens
-  with `16, 100, 1, 100` - a class id and a hundred of something twice over -
-  and there are 292874 bytes of it for those 428 vertices. Repeated byte runs
-  fall most often 24 apart, which looked like a position and a normal per vertex
-  per frame and is not: read that way at that offset the numbers are not
-  coordinates, not unit normals and not inside the model. So the stride is real
-  and the interpretation was wrong, most likely because the data is quantised
-  rather than stored as floats.
+A `0x10001` chunk hangs off a node and holds its movement over time. **These are
+solved**, and they are keyframes rather than baked frames - the shape 3ds Max
+writes, which fits everything else about these files.
 
+Two lists behind one header, and the header describes both, which is what makes
+it checkable:
+
+    header 32 | kind | where the second list starts
+              | n keys of 40 bytes  |  n+1 keys of 84 bytes
+
+* **40 bytes**: a time, a position, and two more triples - the tangents either
+  side of the key.
+* **84 bytes**: the same moments as whole transforms - a time, a quaternion, and
+  a 4x4 matrix.
+
+The two lengths and the header have to add up to the size of the chunk, and in
+every animation measured they do to the byte. **The times are milliseconds** and
+the keys fall every 100 of them: a walking antelope is 29 keys over 2.8 seconds,
+a soldier standing and gesturing is 198 over 19.7.
+
+The second list always holds exactly one key more than the first. Whether that
+is a closing sample or an interval count is not known.
+
+**Whose movement it is** matters: the tracks belong to the *dummy* nodes -
+`dmyp_middle`, `dmyw_001`, `dmyw_002` - which is where a character carries a
+weapon and where the game hangs things off him. The body itself is not in them.
+
+## The body's animation
+
+**Solved, and the loader is what solved it** - the same lesson as the node tree,
+which also did not come out of staring at the bytes.
+
+`diff3dLoader.cpp` reads a mesh chunk at `0x6392F0`, and the first thing it does
+is `push 0x28` and then check what came back. **The mesh chunk header is forty
+bytes**, and the four fields the loader refuses to go on without name themselves
+once you see them beside a model you know:
+
+    +0   40          the header's own size
+    +4   3           a kind
+    +8   1
+    +12  faces
+    +16  vertices
+    +20  frames      1 for a crate, 29 for a walking antelope
+    +24  a sphere - radius, then centre
+
+That `frames` field is the whole answer, and it had been sitting in front of the
+face list all along.
+
+**Frame zero is the static mesh** - the 40 byte vertices, with the colour and the
+texture coordinates. Every frame after it is a sixteen byte header - its own
+size, **the time in milliseconds**, a one, and the step - and then the vertex
+list again at **24 bytes each: a position and a normal, and nothing else**,
+because the colour and the coordinates do not change.
+
+A walking antelope is 29 frames at 100 ms, running 0 to 2800, and the count
+matches the 29 keys of the dummy track exactly. Walking the 28 stored frames
+ends one byte short of the end of the chunk, which is the alignment byte in
+front of the first header - the frame headers do not start on the byte the
+vertex list ended on, and skipping up to three is what makes the walk close.
+
+    python diff3d.py laufen --png deer.png --frame 14
+
+Over 221 models: 110 animated meshes, 3317 frames, every one of them with as
+many vertices as its mesh.
+
+* **A model viewer in the launcher.**
 * **A model viewer in the launcher.** Everything it needs is now here except
   the window: WPF draws 3D without any dependency, so a tree of the 1253 models
   with one turning under the mouse is a self-contained piece of work.

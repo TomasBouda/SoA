@@ -92,6 +92,7 @@ class Mesh(object):
     def __init__(self, at, faces, verts):
         self.at = at
         self.node = None            # the node name written in front of it
+        self.frames = []            # [(time in ms, [(x, y, z, nx, ny, nz)])]
         self.variant = 0            # 0 unless this is a second pose of the same thing
         self.matrix = None          # the node's matrix, as written
         self.placed = False         # whether that matrix was applied
@@ -110,6 +111,7 @@ class Model(object):
         self.source = None          # the .ASE it was exported from
         self.textures = []          # the ones actually named, in order
         self.materials = []         # one per material, None where it has none
+        self.tracks = []            # (node name, the animation track on it)
         self.meshes = []
 
 
@@ -370,6 +372,91 @@ def variants(rows, parent, name):
     return dict((c, n) for n, c in enumerate(children))
 
 
+# What one vertex costs in a frame after the first: a position and a normal,
+# and nothing else. The colour and the texture coordinates are written once in
+# frame zero and do not change, which is why a frame is 24 bytes a vertex
+# against the 40 the first one takes.
+FRAME_VERTEX = 24
+
+
+def frames(raw, mesh, until):
+    """Every frame after the first, from where the static mesh ends.
+
+    A frame is a sixteen byte header - its own size, the time in milliseconds,
+    a one, and the step between frames - and then the whole vertex list again
+    at 24 bytes each. Times run from 100 in hundreds, and frame zero is the
+    static mesh that has already been read.
+
+    The header does not begin on the byte the vertex list ended on; there is a
+    byte of alignment in front of it, and skipping up to three is what makes the
+    walk close exactly on the end of the chunk.
+    """
+    found = []
+    at = mesh.vert_start + len(mesh.verts) * VERTEX
+    count = len(mesh.verts)
+    while at < until - 16:
+        head = None
+        for skip in range(4):
+            h = struct.unpack_from('<4I', raw, at + skip)
+            if h[0] == 16 and h[2] == 1:
+                head = (h[1], at + skip + 16)
+                break
+        if head is None:
+            break
+        when, data = head
+        if data + count * FRAME_VERTEX > until:
+            break
+        verts = []
+        for k in range(count):
+            verts.append(struct.unpack_from('<6f', raw, data + k * FRAME_VERTEX))
+        found.append((when, verts))
+        at = data + count * FRAME_VERTEX
+    return found
+
+
+def track(raw, at, size):
+    """One node's animation track, or None.
+
+    A track chunk is two lists of keys behind one header, and the header
+    describes both - which is what makes it checkable: the two lengths and the
+    header have to add up to the size of the chunk, and in every animation
+    measured they do, to the byte.
+
+        header 32 | kind | where the second list starts
+                  | n keys of 40 | n+1 keys of 84
+
+    The first list is movement: a time, a position, and two more triples that
+    are the tangents either side of it - the shape 3ds Max writes a spline key
+    in. The second is the same moments as whole transforms: a time, a
+    quaternion, and a 4x4 matrix, 84 bytes together.
+
+    The second list always holds exactly one key more than the first. Whether
+    that is a closing sample or an interval count is not known.
+    """
+    if at + 32 > len(raw):
+        return None
+    hsize, kind, part1, n1, r1, _, n2, r2 = struct.unpack_from('<8I', raw, at)
+    if hsize != 32 or r1 != 40 or r2 != 84:
+        return None
+    if hsize + n1 * r1 != part1 or hsize + n1 * r1 + n2 * r2 != size:
+        return None
+
+    moves = []
+    for k in range(n1):
+        o = at + hsize + k * r1
+        when = struct.unpack_from('<I', raw, o)[0]
+        f = struct.unpack_from('<9f', raw, o + 4)
+        moves.append((when, f[0:3], f[3:6], f[6:9]))
+    poses = []
+    for k in range(n2):
+        o = at + part1 + k * r2
+        when = struct.unpack_from('<I', raw, o)[0]
+        turn = struct.unpack_from('<4f', raw, o + 4)
+        where = struct.unpack_from('<16f', raw, o + 20)
+        poses.append((when, turn, where))
+    return {'kind': kind, 'moves': moves, 'poses': poses}
+
+
 def place(model, raw):
     """Put every part where it belongs, through the tree in the chunk table.
 
@@ -413,6 +500,15 @@ def place(model, raw):
             at = parent[at]
         return m
 
+    for i, (kind, children, off, size) in enumerate(rows):
+        if kind != CHUNK_TRACK:
+            continue
+        got = track(raw, off, size)
+        if got is None:
+            continue
+        owner = parent[i]
+        model.tracks.append((name.get(owner) if owner is not None else None, got))
+
     # A mesh chunk sits inside the node it belongs to, so the mesh found at an
     # offset is matched to the chunk that covers it.
     for mesh in model.meshes:
@@ -420,6 +516,7 @@ def place(model, raw):
         for i, (kind, children, off, size) in enumerate(rows):
             if kind == CHUNK_MESH and off <= mesh.header < off + size:
                 owner = parent[i]
+                mesh.frames = frames(raw, mesh, off + size)
                 break
         if owner is None:
             continue
@@ -435,10 +532,15 @@ def place(model, raw):
             continue
         mesh.matrix = m
         mesh.verts = [transform(m, v) for v in mesh.verts]
+        # A frame's vertex carries only a position and a normal, so it is
+        # padded out to what transform() expects and cut back afterwards.
+        mesh.frames = [(when, [transform(m, tuple(v) + (0, 0, 0, 0))[:6] for v in verts])
+                       for when, verts in mesh.frames]
         mesh.placed = True
 
 
 CHUNK_NODE = 0x10000
+CHUNK_TRACK = 0x10001
 CHUNK_MESH = 0x10002
 CHUNK_TYPES = (0x10000, 0x10001, 0x10002, 0x10003)
 
@@ -558,6 +660,15 @@ def as_obj(model, out):
             base += len(mesh.verts)
 
 
+def at_frame(mesh, which):
+    """The mesh as it stands at frame `which`, or as it was modelled at 0."""
+    if which <= 0 or which > len(mesh.frames):
+        return mesh.verts
+    moved = mesh.frames[which - 1][1]
+    return [tuple(moved[k][:6]) + tuple(mesh.verts[k][6:])
+            for k in range(min(len(moved), len(mesh.verts)))]
+
+
 def wanted(mesh, hide, poses=False):
     if mesh.variant and not poses:
         return False
@@ -592,7 +703,7 @@ def texture(game, name):
 
 
 def render(model, out, size=640, turn=35.0, tilt=25.0, hide=(), game=GAME,
-           plain=False, poses=False):
+           plain=False, poses=False, frame=0):
     """A picture of it, so that a mesh can be looked at rather than counted.
 
     A z buffer and one light. Triangles are filled from the model's texture
@@ -611,8 +722,11 @@ def render(model, out, size=640, turn=35.0, tilt=25.0, hide=(), game=GAME,
     for mesh in model.meshes:
         if not wanted(mesh, hide, poses):
             continue
+        verts = at_frame(mesh, frame)
         for material, _, i0, i1, i2 in mesh.faces:
-            tris.append((mesh.verts[i0], mesh.verts[i1], mesh.verts[i2], material))
+            if max(i0, i1, i2) >= len(verts):
+                continue
+            tris.append((verts[i0], verts[i1], verts[i2], material))
     if not tris:
         return False
 
@@ -786,6 +900,9 @@ def main():
     ap.add_argument('--png', metavar='FILE', help='draw it, to see whether it is right')
     ap.add_argument('--turn', type=float, default=35.0)
     ap.add_argument('--tilt', type=float, default=25.0)
+    ap.add_argument('--frame', type=int, default=0,
+                    help='which frame of the animation to draw, 0 being the pose '
+                         'the model was built in')
     ap.add_argument('--poses', action='store_true',
                     help='draw every pose of a weapon, not just the one in hand')
     ap.add_argument('--plain', action='store_true',
@@ -824,6 +941,16 @@ def main():
         print('      %2d %-24s %6d vertices %6d faces%s'
               % (n, mesh.node or '?', len(mesh.verts), len(mesh.faces),
                  '   (another pose of the same thing)' if mesh.variant else ''))
+    moving = [m for m in model.meshes if m.frames]
+    if moving:
+        m = moving[0]
+        print('   %d frames, %d to %d ms'
+              % (len(m.frames) + 1, 0, m.frames[-1][0]))
+    for who, got in model.tracks:
+        print('   track on %-20s %d moves, %d poses, %d to %d'
+              % (who or '?', len(got['moves']), len(got['poses']),
+                 got['moves'][0][0] if got['moves'] else 0,
+                 got['moves'][-1][0] if got['moves'] else 0))
     if model.meshes:
         lo, hi = bounds(model)
         print('   it measures %.1f x %.1f x %.1f'
@@ -834,7 +961,8 @@ def main():
     if args.png:
         hide = tuple(w.strip().lower() for w in args.hide.split(',') if w.strip())
         if render(model, args.png, turn=args.turn, tilt=args.tilt, hide=hide,
-                  game=args.game, plain=args.plain, poses=args.poses):
+                  game=args.game, plain=args.plain, poses=args.poses,
+                  frame=args.frame):
             print('drawn into %s' % args.png)
         else:
             print('nothing to draw: no mesh came out of it')

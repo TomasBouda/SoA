@@ -87,6 +87,34 @@ def table(title, items, humans, note=None):
     return lines
 
 
+def all_classes(path):
+    """Every trigger and event class in soa.exe, in the order they sit in it.
+
+    The editor's text resources name only the handful a mission author is shown
+    a panel for. The classes themselves are all in the executable, as
+    `CY2KKITrigger_...` and `CY2KKIEvent_...`, and they lie in two unbroken
+    blocks - the compiler laid the name strings down in the order the classes
+    are declared.
+
+    **That order is very probably the numbering the mission files use** - a
+    script element is stored as a number, not a name, since none of these words
+    appears in a `.mis` - but it is not proven here, only likely. It is
+    reported as the order it is, and nobody should count on the index until a
+    mission has been decoded against it.
+    """
+    data = open(path, 'rb').read()
+    pat = re.compile(rb'CY2KKI(Trigger|Event)_[A-Za-z0-9_]{2,48}')
+    found = []
+    for m in pat.finditer(data):
+        name = m.group().decode('latin1')
+        after = data[m.end():m.end() + 2]
+        if after == b'::':
+            continue                     # CY2KKITrigger_X::Tick, a method
+        kind, rest = name[len('CY2KKI'):].split('_', 1)
+        found.append((m.start(), kind, rest))
+    return found
+
+
 def main():
     strings = exe_strings(EXE)
     rows_editor = load(UBN, TRS_EDITOR)
@@ -141,6 +169,25 @@ def main():
             t = t[:87] + '...'
         L += ['| `%s` | %s |' % (rid, t)]
     L += ['', 'Full listing: `python tools/trs.py ../_patched/data.ubn MISSIONGOALS`', '']
+
+    every = all_classes(EXE)
+    for kind in ('Trigger', 'Event'):
+        rows = [(at, n) for at, k, n in every if k == kind]
+        L += ['', '## Every %s class in the executable' % kind.lower(), '']
+        if kind == 'Trigger':
+            L += ["The tables above come from the editor's text resources and cover",
+                  'only what a mission author is shown a panel for. These are all of',
+                  'them, taken from the class names in `soa.exe`, in the order they',
+                  'lie there.', '',
+                  '**The order is probably the numbering the mission files use** and is',
+                  'not proven to be. A script element is stored in a `.mis` as a number -',
+                  'none of these words appears in one - and until a mission has been',
+                  'decoded against this list, the index beside a name is where it sits in',
+                  'the executable and nothing more.', '']
+        L += ['| # | class | at |', '|---|---|---|']
+        for n, (at, name) in enumerate(rows):
+            L += ['| %d | `%s` | `%08X` |' % (n, name, at + 0x400000)]
+    L += ['']
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     open(OUT, 'w', encoding='utf-8', newline='\n').write('\n'.join(L))

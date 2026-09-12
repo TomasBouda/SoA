@@ -497,6 +497,16 @@ internal static class GameLink
     private static string Inject(IntPtr process, string text,
                                  Func<uint, uint, byte[]> build, out uint returned)
     {
+        byte[] raw = System.Text.Encoding.ASCII.GetBytes((text ?? "") + "\0");
+        return Inject(process, raw, build, out returned);
+    }
+
+    /// The same with bytes rather than text, for a call whose argument is not
+    /// a string. The data goes where the text would, at the first address the
+    /// builder is given; it has 64 bytes before the flag byte.
+    private static string Inject(IntPtr process, byte[] raw,
+                                 Func<uint, uint, byte[]> build, out uint returned)
+    {
         returned = 0;
         IntPtr memory = VirtualAllocEx(process, IntPtr.Zero, 0x1000, MEM_COMMIT_RESERVE,
                                        PAGE_EXECUTE_READWRITE);
@@ -509,7 +519,6 @@ internal static class GameLink
             uint flagAddress = baseAddress + 0x40;
             uint codeAddress = baseAddress + 0x80;
 
-            byte[] raw = System.Text.Encoding.ASCII.GetBytes((text ?? "") + "\0");
             byte[] code = build(textAddress, flagAddress);
 
             UIntPtr written;
@@ -826,6 +835,106 @@ internal static class GameLink
         b.AddRange(new byte[] { 0x8B, 0x0D }); Dword(b, WORLD_GLOBAL); // mov ecx, [world]
         b.Add(0xB8); Dword(b, SAVE_HEIGHT_MAP);                        // mov eax, SaveHeightMap
         b.AddRange(new byte[] { 0xFF, 0xD0 });                         // call eax
+        b.AddRange(new byte[] { 0xC2, 0x04, 0x00 });                   // ret 4
+        return b.ToArray();
+    }
+
+    // --------------------------------------------------------- the air strike
+
+    // The air strike is a shipped feature the campaign never shows: a plane
+    // with bombs in the hangar, a list of target points, and one launch
+    // (0x6B9030) that pulls the plane out of the bunker's unit list, sets it on
+    // the first point and hands it the order. The game's own button only
+    // appears in a mission whose designer placed target markers, which none of
+    // ours did, so the launcher calls the launch itself with a point of its
+    // own - which is exactly what the developers' AirStrike console command
+    // did, with two fixed points. The recipe, read off that command (0x6D48AD)
+    // and verified live:
+    //
+    //     vector<xyz> points;                 ; 16 bytes: alloc, first, last, end
+    //     AirStrike strike;                   ; 4 bytes, the ctor writes a vtable
+    //     points.insert(points.end(), 1, p);  ; 0x6AF670, thiscall, per point
+    //     strike.Launch(&points);             ; 0x6B9030, thiscall, ret 4
+    //     free(points.first);                 ; 0x756600
+    //
+    // The launch answers 0 when a plane went, 1 when nothing in the bunker was
+    // an aeroplane with ammunition, and a negative HRESULT otherwise. It is
+    // safe to call with an empty hangar. The bunker is the global 0x8759C0 and
+    // a mission has to be running, or the plane has nowhere to go.
+    private const uint BUNKER_GLOBAL = 0x008759C0;
+    private const uint STRIKE_CTOR = 0x006B8D20;
+    private const uint POINTS_INSERT = 0x006AF670;
+    private const uint STRIKE_LAUNCH = 0x006B9030;
+    private const uint GAME_FREE = 0x00756600;
+
+    /// Sends a plane from the hangar to bomb the point, in world units. Null
+    /// means it went; otherwise the reason it did not.
+    public static string AirStrike(float x, float y, out uint returned)
+    {
+        returned = 0;
+        Process game = FindGame();
+        if (game == null) return "The game is not running.";
+
+        IntPtr process = OpenProcess(PROCESS_ALL, false, game.Id);
+        if (process == IntPtr.Zero)
+            return "Cannot attach to the game process (error " + Marshal.GetLastWin32Error() + ").";
+        try
+        {
+            if (ReadDword(process, BUNKER_GLOBAL) == 0)
+                return "There is no bunker yet - the game has not got that far.";
+            if (ReadDword(process, WORLD_GLOBAL) == 0)
+                return "No mission is running - the plane would have nowhere to go.";
+
+            // The point goes where the text would; the strike object sits
+            // right behind it, both inside the 64 bytes the builder may use.
+            var raw = new byte[16];
+            Buffer.BlockCopy(BitConverter.GetBytes(x), 0, raw, 0, 4);
+            Buffer.BlockCopy(BitConverter.GetBytes(y), 0, raw, 4, 4);
+            string failed = Inject(process, raw, (t, f) => AirStrikeShellcode(t, t + 12), out returned);
+            if (failed != null) return failed;
+            if (returned == 1)
+                return "No aeroplane with bombs in the hangar - the game found nothing to send.";
+            if ((returned & 0x80000000) != 0)
+                return "The game refused (0x" + returned.ToString("X8") + ") - tracefile.log says why.";
+            return null;
+        }
+        finally
+        {
+            CloseHandle(process);
+        }
+    }
+
+    private static byte[] AirStrikeShellcode(uint pointAddress, uint strikeAddress)
+    {
+        var b = new List<byte>();
+        b.AddRange(new byte[] { 0x83, 0xEC, 0x10 });                   // sub esp, 0x10
+        b.AddRange(new byte[] { 0x31, 0xC0 });                         // xor eax, eax
+        b.AddRange(new byte[] { 0x89, 0x04, 0x24 });                   // mov [esp], eax
+        b.AddRange(new byte[] { 0x89, 0x44, 0x24, 0x04 });             // mov [esp+4], eax
+        b.AddRange(new byte[] { 0x89, 0x44, 0x24, 0x08 });             // mov [esp+8], eax
+        b.AddRange(new byte[] { 0x89, 0x44, 0x24, 0x0C });             // mov [esp+0xC], eax
+        b.Add(0xB9); Dword(b, strikeAddress);                          // mov ecx, strike
+        b.Add(0xB8); Dword(b, STRIKE_CTOR);                            // mov eax, ctor
+        b.AddRange(new byte[] { 0xFF, 0xD0 });                         // call eax
+        b.AddRange(new byte[] { 0x8B, 0x44, 0x24, 0x08 });             // mov eax, [esp+8]  ; end()
+        b.Add(0x68); Dword(b, pointAddress);                           // push &point
+        b.AddRange(new byte[] { 0x6A, 0x01 });                         // push 1
+        b.Add(0x50);                                                   // push eax
+        b.AddRange(new byte[] { 0x8D, 0x4C, 0x24, 0x0C });             // lea ecx, [esp+0xC] ; the vector
+        b.Add(0xB8); Dword(b, POINTS_INSERT);                          // mov eax, insert
+        b.AddRange(new byte[] { 0xFF, 0xD0 });                         // call eax          ; ret 0xC
+        b.AddRange(new byte[] { 0x8D, 0x04, 0x24 });                   // lea eax, [esp]
+        b.Add(0x50);                                                   // push eax          ; &points
+        b.Add(0xB9); Dword(b, strikeAddress);                          // mov ecx, strike
+        b.Add(0xB8); Dword(b, STRIKE_LAUNCH);                          // mov eax, launch
+        b.AddRange(new byte[] { 0xFF, 0xD0 });                         // call eax          ; ret 4
+        b.AddRange(new byte[] { 0x89, 0x44, 0x24, 0x0C });             // mov [esp+0xC], eax ; the answer, in the end slot
+        b.AddRange(new byte[] { 0xFF, 0x74, 0x24, 0x04 });             // push [esp+4]      ; first
+        b.Add(0xB8); Dword(b, GAME_FREE);                              // mov eax, free
+        b.AddRange(new byte[] { 0xFF, 0xD0 });                         // call eax
+        b.AddRange(new byte[] { 0x83, 0xC4, 0x04 });                   // add esp, 4
+        b.AddRange(new byte[] { 0x8B, 0x44, 0x24, 0x0C });             // mov eax, [esp+0xC]
+        b.AddRange(new byte[] { 0x83, 0xC4, 0x10 });                   // add esp, 0x10
         b.AddRange(new byte[] { 0xC2, 0x04, 0x00 });                   // ret 4
         return b.ToArray();
     }
