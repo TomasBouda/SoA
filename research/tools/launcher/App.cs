@@ -380,6 +380,10 @@ internal sealed class LauncherWindow : Window
             "The game's 3D models, read out of objects.ubn and drawn with their "
             + "own textures",
             OpenModels), Dock.Left);
+        Place(row, ToolButton("\uE765", "Keys",
+            "Every action the game can bind and its two keys, edited here and "
+            + "written into the registry the game reads when it starts",
+            OpenKeys), Dock.Left);
         Place(row, ToolButton("\uE90F", "Patches",
             "The changes made to soa.exe - focus, the log, the camera, the fonts, "
             + "the air strike - each with a box to switch it on or off",
@@ -509,6 +513,13 @@ internal sealed class LauncherWindow : Window
         foreach (Window w in Application.Current.Windows)
             if (w is CatalogWindow) { w.Activate(); return; }
         new CatalogWindow().Show();
+    }
+
+    private void OpenKeys()
+    {
+        foreach (Window w in Application.Current.Windows)
+            if (w is KeysWindow) { w.Activate(); return; }
+        new KeysWindow().Show();
     }
 
     private void OpenPatches()
@@ -770,7 +781,7 @@ internal sealed class LauncherWindow : Window
             bool othersOpen = false;
             foreach (Window w in Application.Current.Windows)
                 if (w is CatalogWindow || w is ConsoleWindow || w is MapWindow
-                    || w is SavesWindow || w is ModelsWindow || w is PatchesWindow)
+                    || w is SavesWindow || w is ModelsWindow || w is PatchesWindow || w is KeysWindow)
                     othersOpen = true;
             if (othersOpen) Application.Current.ShutdownMode = ShutdownMode.OnLastWindowClose;
 

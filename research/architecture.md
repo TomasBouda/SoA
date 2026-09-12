@@ -408,6 +408,19 @@ The ids are the game's own message numbers, which is why `AK_SAVE` is 0x424 and
 and quick load. The alignment is worth pinning against those two: read the
 record one dword out and everything still looks plausible while being wrong.
 
+The 67 records, with the names the game's own key help gives them
+(`TRES_ACTIONS.trs`, keyed by the `AK_` name), are generated into the
+launcher by [tools/gen_keys_cs.py](tools/gen_keys_cs.py), and the launcher's
+**Keys** window edits them: click a key, press the one wanted, and the value
+is written into the registry there and then. A key is a virtual-key code; a
+mouse button is `0x80000000` plus its number - 0 left, 1 right, 2 middle, 3
+wheel down, 4 wheel up - which is what the five actions whose default equals
+their own id (`AK_SELECT`, `AK_CONTEXT`, `AK_FREELOOK`, `AK_CAMERA_DOWN`,
+`AK_CAMERA_UP`) are bound to; `0xFFFFFFFF` is no key. The game reads the
+keys when it starts and writes its own back when it exits, so the window
+locks while `soa.exe` runs. A key bound twice is shown in red - the game
+does not mind, it answers both.
+
 **`AK_SCREENSHOT` is id 0x7B and its default key is F12**, bound in the shipped
 settings and in the registry. The game writes `shot%04d.png` into its working
 directory - the `Game` folder when the launcher starts it - counting up from

@@ -60,6 +60,8 @@ tools/launcher/App.cs      the launcher in C#, sets the resolution from the desk
 tools/launcher/Saves.cs    the saves window: what is in a save, without loading it
 tools/launcher/Catalog.cs  the base catalog for adding gear and vehicles
 tools/launcher/Patches.cs  the patches window: the changes in soa.exe, each with a box to switch it
+tools/launcher/Keys.cs     the keys window: every action the game can bind, edited into the registry
+tools/gen_keys_cs.py       writes launcher/KeysData.cs, the 67 actions out of the exe and TRES_ACTIONS.trs
 tools/sandbox/             verification of the package on clean Windows
 tools/upscale_textures.py  enlarging the object textures
 tools/upscale_terrain.py   enlarging the terrain textures
