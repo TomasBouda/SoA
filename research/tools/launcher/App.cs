@@ -344,7 +344,12 @@ internal sealed class LauncherWindow : Window
         return wrap;
     }
 
-    /// The windows that stand beside the game, in a strip across the top.
+    /// The windows that stand beside the game, in a strip across the top -
+    /// as icons, because eight words of text did not fit the window and
+    /// wrapped. The glyphs are Segoe MDL2 Assets, which every Windows since
+    /// 10 has; the name each one stands for is the tooltip and the
+    /// automation name, so the script that drives the launcher still finds
+    /// "Patches".
     ///
     /// Save settings sits apart on the right because it is the odd one out:
     /// the others only open something, that one writes the package.
@@ -359,34 +364,34 @@ internal sealed class LauncherWindow : Window
         };
         var row = new DockPanel { LastChildFill = false };
 
-        Place(row, ToolButton("Catalog",
+        Place(row, ToolButton("\uE8F1", "Catalog",
             "Every item and vehicle in the game, with what the game says about it",
             OpenCatalog), Dock.Left);
-        Place(row, ToolButton("Console",
+        Place(row, ToolButton("\uE756", "Console",
             "The game's log, and the base cheats sent into the running game",
             OpenConsole), Dock.Left);
-        Place(row, ToolButton("Map",
+        Place(row, ToolButton("\uE707", "Map",
             "The map of the running mission, read out of the game",
             OpenMap), Dock.Left);
-        Place(row, ToolButton("Saves",
+        Place(row, ToolButton("\uE8A5", "Saves",
             "What is in the saves, read without loading them",
             OpenSaves), Dock.Left);
-        Place(row, ToolButton("Models",
+        Place(row, ToolButton("\uE7B8", "Models",
             "The game's 3D models, read out of objects.ubn and drawn with their "
             + "own textures",
             OpenModels), Dock.Left);
-        Place(row, ToolButton("Patches",
-            "The changes made to soa.exe - focus, the log, the camera, the fonts - "
-            + "each with a box to switch it on or off",
+        Place(row, ToolButton("\uE90F", "Patches",
+            "The changes made to soa.exe - focus, the log, the camera, the fonts, "
+            + "the air strike - each with a box to switch it on or off",
             OpenPatches), Dock.Left);
 
-        _findGame = ToolButton("Find the game...",
+        _findGame = ToolButton("\uE8E5", "Find the game...",
             "Point the launcher at soa.exe. Only needed when the game is not in "
             + "a Game folder beside the launcher.", FindGame);
         _findGame.Visibility = Visibility.Collapsed;
         Place(row, _findGame, Dock.Right);
 
-        Button settings = ToolButton("Save settings",
+        Button settings = ToolButton("\uE74E", "Save settings",
             "Takes whatever the game is set to right now and stores it "
             + "in the package as the default.", SaveSettings);
         settings.Margin = new Thickness(6, 0, 0, 0);
@@ -402,21 +407,30 @@ internal sealed class LauncherWindow : Window
         row.Children.Add(what);
     }
 
-    private Button ToolButton(string text, string tip, Action run)
+    /// An icon button: the glyph, the name under the mouse, and the name for
+    /// UI Automation, so it can still be found by what it does.
+    private Button ToolButton(string glyph, string name, string tip, Action run)
     {
         var b = new Button
         {
-            Content = text,
-            Height = 26,
-            FontSize = 11,
-            Padding = new Thickness(10, 0, 10, 0),
+            Content = new TextBlock
+            {
+                Text = glyph,
+                FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                FontSize = 14,
+                VerticalAlignment = VerticalAlignment.Center
+            },
+            Width = 34,
+            Height = 28,
+            Padding = new Thickness(0),
             Margin = new Thickness(0, 0, 6, 0),
             Background = Panel,
             Foreground = Dim,
             BorderBrush = Line,
             BorderThickness = new Thickness(1),
-            ToolTip = tip
+            ToolTip = name + " - " + tip
         };
+        System.Windows.Automation.AutomationProperties.SetName(b, name);
         b.Click += (s2, e2) => run();
         return b;
     }

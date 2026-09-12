@@ -8,7 +8,8 @@ pictures go into the page as data URIs, the vehicles shrunk to 112 px, so
 the page is one file.
 
 Usage:
-    python gen_weapons_web.py <out.html>
+    python gen_weapons_web.py <out.html>               the page body, for the Artifact wrapper
+    python gen_weapons_web.py <out.html> --standalone  a whole document, for GitHub Pages
 """
 import base64
 import io
@@ -49,45 +50,6 @@ def picture(name, limit):
     buf = io.BytesIO()
     im.save(buf, 'PNG', optimize=True)
     return 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode('ascii')
-
-
-PATCHES_CS = os.path.join(HERE, 'launcher', 'Patches.cs')
-PHOTOS = os.path.join(HERE, '..', 'pictures')
-# what each patch shows, and the two the launcher keeps in App.cs
-PATCH_PICTURES = {'airstrike': ['airstrike-ring-menu.jpg', 'airstrike-mig.jpg', 'airstrike-pings.jpg'],
-                  'camera': ['camera-high.jpg'], 'mailbox': ['launcher-map.png']}
-PATCH_FLAGS = {'focus': '--keep-focus', 'log': '--share-log', 'camera': '--camera', 'speed': '--fast-camera',
-               'pause': '--active-pause', 'mailbox': '--mailbox', 'airstrike': '--airstrike-menu',
-               'charset': '--east-europe'}
-APP_PATCHES = [
-    {'key': 'window', 'name': 'A window instead of the full screen', 'flag': '--windowed',
-     'tip': 'One byte in the code that shapes the window. The launcher writes it before the game starts, '
-            'the way its mode box is set, so the game runs in a window on the desktop or takes the screen.'},
-    {'key': 'intro', 'name': 'No logos and no intro video', 'flag': '--no-intro',
-     'tip': 'The startup jumps straight to the menu instead of playing the publisher logos and the intro '
-            'film every time.'},
-]
-
-
-def patches():
-    """The launcher's own table - name and tip of every patch it can switch."""
-    import re
-    cs = open(PATCHES_CS, encoding='utf-8').read()
-    out = list(APP_PATCHES)
-    for m in re.finditer(r'Key = "(\w+)", Name = "([^"]+)",\s*Tip = ((?:"[^"]*"\s*\+?\s*)+)', cs):
-        out.append({'key': m.group(1), 'name': m.group(2), 'tip': ''.join(re.findall(r'"([^"]*)"', m.group(3))),
-                    'flag': PATCH_FLAGS.get(m.group(1), '')})
-    for d in out:
-        d['pictures'] = [photo(f) for f in PATCH_PICTURES.get(d['key'], [])]
-    return out
-
-
-def photo(name):
-    path = os.path.join(PHOTOS, name)
-    if not os.path.exists(path):
-        return None
-    kind = 'jpeg' if name.endswith('.jpg') else 'png'
-    return 'data:image/%s;base64,' % kind + base64.b64encode(open(path, 'rb').read()).decode('ascii')
 
 
 def val(r, i):
@@ -136,8 +98,7 @@ def build():
             d.update({'hp': val(r, 5), 'armour': val(r, 2), 'speed': val(r, 4), 'seats': val(r, 6),
                       'f3': val(r, 3), 'f9': val(r, 9)})
             vehicles.append(d)
-    return {'ammo': ammo, 'weapons': weapons, 'vehicles': vehicles, 'patches': patches(),
-            'launcherPatches': photo('launcher-patches.png')}
+    return {'ammo': ammo, 'weapons': weapons, 'vehicles': vehicles}
 
 
 PAGE = r'''<title>Soldiers of Anarchy Arsenal</title>
@@ -192,24 +153,6 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 52px; line-h
 .difficulty { display: flex; gap: 12px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 13px; margin-top: 8px; }
 .difficulty span { border: 1px solid var(--line); padding: 2px 8px; }
 
-.patches { margin: 40px 0 0; }
-.patches h2 { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .08em; font-size: 26px; margin: 0; font-weight: 700; }
-.patches .lead { max-width: 64ch; margin: 8px 0 18px; }
-.gallery { display: grid; grid-template-columns: 1.4fr 1fr 1fr; grid-template-rows: 220px 220px; gap: 10px; }
-.gallery figure { margin: 0; position: relative; overflow: hidden; background: var(--inset); border-radius: 3px; }
-.gallery figure:first-child { grid-row: 1 / 3; }
-.gallery img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.gallery figcaption { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 12px 8px; background: linear-gradient(transparent, rgba(0,0,0,.72)); color: #f0e8c8; font-family: var(--font-display); font-size: 14px; letter-spacing: .06em; text-transform: uppercase; }
-.patch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
-.patch { background: var(--panel); border: 1px solid var(--line); padding: 14px 16px 14px; display: grid; grid-template-rows: auto 1fr auto; gap: 6px; }
-.patch h3 { font-family: var(--font-display); font-weight: 700; font-size: 18px; margin: 0; letter-spacing: .02em; }
-.patch p { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
-.patch code { font-family: var(--font-mono); font-size: 12px; color: var(--accent-ink); }
-.patch-row { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; margin-top: 18px; }
-.patch-row .shot { margin: 0; background: var(--inset); border-radius: 3px; padding: 6px; }
-.patch-row .shot img { width: 100%; display: block; border-radius: 2px; }
-.patch-row .shot figcaption { font-size: 12.5px; color: var(--soft-on-inset); padding: 8px 4px 2px; }
-@media (max-width: 900px) { .gallery { grid-template-columns: 1fr 1fr; grid-template-rows: 200px 200px 200px; } .gallery figure:first-child { grid-column: 1 / 3; grid-row: 1; } .patch-row { grid-template-columns: 1fr; } }
 nav.tabs { display: flex; gap: 0; margin: 36px 0 0; border-bottom: 1px solid var(--line); align-items: end; flex-wrap: wrap; }
 nav.tabs button { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; font-size: 17px; background: none; border: 0; border-bottom: 3px solid transparent; color: var(--ink-soft); padding: 8px 14px; cursor: pointer; margin-bottom: -1px; }
 nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
@@ -304,16 +247,6 @@ footer { margin-top: 40px; font-size: 13px; color: var(--ink-soft); max-width: 8
     <figcaption>Read off TakeDamage (0x57CDB0 → 0x57CE70) and the explosion (0x56D9A0); the AK‑74 numbers were checked by shooting a monk, a Hummer and a BTR‑80 while the round's fields were changed in memory.</figcaption>
   </figure>
 </div>
-
-<section class="patches" id="patches">
-  <h2>The game we play it in</h2>
-  <p class="lead">Nothing here is a mod of the data: every number below is the game's own. What changed is <b>soa.exe</b> - a handful of bytes in a dozen places, each found by its surroundings and each switchable in the launcher's Patches window. Together they make the 2002 game a better place to fight in: a camera that shows the whole battle, orders while time stands still, and an air strike where you click.</p>
-  <div class="gallery" id="gallery"></div>
-  <div class="patch-row">
-    <div class="patch-grid" id="patch-grid"></div>
-    <figure class="shot"><img id="patches-shot" alt="The launcher's Patches window: every change in soa.exe with a box to switch it"><figcaption>The launcher's Patches window. Each box writes or puts back its bytes; the game has to be closed for the file to be written.</figcaption></figure>
-  </div>
-</section>
 
 <nav class="tabs" role="tablist">
   <button role="tab" aria-selected="true" data-tab="ammo">Ammunition</button>
@@ -437,23 +370,7 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList.contains('row')) toggleDetail(e.target); });
 for (const k of ['ammo','weapons','vehicles']) render(k);
-(function patches() {
-  const gal = [
-    ['airstrike', 0, 'Hold the right button on open ground: the jet is in the ring, in every mission'],
-    ['airstrike', 1, 'The MiG-27 comes in where you clicked'],
-    ['camera', 0, 'The camera at 55 of its 150 world units - the stock game stops at 30'],
-    ['airstrike', 2, 'The bomb lands; red rings on the minimap until the plane is back'],
-    ['mailbox', 0, 'The launcher reads the whole mission out of the running game through the mailbox'],
-  ];
-  const byKey = {}; for (const p of DATA.patches) byKey[p.key] = p;
-  document.getElementById('gallery').innerHTML = gal.map(([k, i, cap]) => {
-    const src = byKey[k] && byKey[k].pictures[i]; if (!src) return '';
-    return `<figure><img src="${src}" alt=""><figcaption>${esc(cap)}</figcaption></figure>`;
-  }).join('');
-  document.getElementById('patch-grid').innerHTML = DATA.patches.map(p =>
-    `<article class="patch"><h3>${esc(p.name)}</h3><p>${esc(p.tip)}</p>${p.flag ? `<code>patch_exe.py ${esc(p.flag)}</code>` : ''}</article>`).join('');
-  if (DATA.launcherPatches) document.getElementById('patches-shot').src = DATA.launcherPatches;
-})();
+
 </script>
 '''
 
@@ -463,6 +380,12 @@ def main():
         raise SystemExit(__doc__)
     data = build()
     html = PAGE.replace('__DATA__', json.dumps(data, ensure_ascii=False))
+    if '--standalone' in sys.argv:
+        head = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+                '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
+                '<meta name="description" content="Every round, weapon and vehicle of Soldiers of Anarchy '
+                'with its damage, blast radius, armour and range.">\n')
+        html = head + html.replace('</style>', '</style>\n</head>\n<body>', 1) + '\n</body>\n</html>\n'
     with open(sys.argv[1], 'w', encoding='utf-8', newline='\n') as f:
         f.write(html)
     print('wrote %s (%d kB)' % (sys.argv[1], len(html.encode('utf-8')) // 1024))
