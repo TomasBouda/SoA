@@ -114,6 +114,13 @@ armour in two hits and then does 150–200 to its 100 hit points. Against a
 monk with no vest every round is a hit on the hit points: 9–11 from the
 AK-74, ten rounds to a kill, watched live.
 
+A vehicle's crew is hit through the same numbers: once the armour left is
+below a round's `penetrates below`, each crewman takes the round's `vs
+soldiers` with the chance `(penetrates below + 100) / 400` per hit - see
+[architecture.md](architecture.md), "Vehicles and their crews". A Dragunov
+(200) reaches a Hummer's crew from its first hit and leaves the Hummer
+standing.
+
 An **explosion** (`0x56D9A0`) reaches every object within `blast radius`
 and scales the four values by `1 - distance / radius`, with the top of
 each range; a rocket that hits an object directly also does its direct

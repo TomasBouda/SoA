@@ -4,7 +4,7 @@ There is no debugger in this project and the game's own trace mask says a
 lot about commands and nothing about most functions. This is the third
 way: a hook at the entry of each function of interest - a jump into a
 trampoline in memory allocated in the game - that appends a record (which
-hook, ecx, and the first three stack arguments) to a buffer and then runs
+hook, ecx, the first three stack arguments and the return address) to a buffer and then runs
 the displaced instructions and jumps back. The game logs nothing; the
 buffer is read from outside afterwards.
 
@@ -13,7 +13,7 @@ buffer is read from outside afterwards.
     p = probe.Probe(g.h)
     p.hook({'OnStart': 0x711C60, 'Throw': 0x5E6980})
     ... make the game do something ...
-    for name, ecx, a1, a2, a3 in p.hits():
+    for name, ecx, a1, a2, a3, ret in p.hits():
         ...
     p.unhook()
 
@@ -40,7 +40,7 @@ k32.VirtualAllocEx.restype = ctypes.c_void_p
 k32.VirtualProtectEx.argtypes = [wintypes.HANDLE, ctypes.c_void_p, ctypes.c_size_t, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
 CS = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
 CS.detail = True
-REC = 20
+REC = 24
 
 
 class Probe:
@@ -85,6 +85,7 @@ class Probe:
             c += b'\x8B\x54\x24\x28' + b'\x89\x50\x08'             # mov edx, [esp+0x28] (arg1); mov [eax+8], edx
             c += b'\x8B\x54\x24\x2C' + b'\x89\x50\x0C'             # arg2
             c += b'\x8B\x54\x24\x30' + b'\x89\x50\x10'             # arg3
+            c += b'\x8B\x54\x24\x24' + b'\x89\x50\x14'             # the return address: who called
             c += b'\x83\xC0' + bytes([REC])                        # add eax, REC
             c += b'\x3D' + struct.pack('<I', self.end)             # cmp eax, end
             c += b'\x72\x05'                                       # jb +5
@@ -104,8 +105,8 @@ class Probe:
         data = sm.read(self.h, self.buf, ptr - self.buf)
         out = []
         for i in range(0, len(data), REC):
-            pid, ecx, a1, a2, a3 = struct.unpack_from('<IIIII', data, i)
-            out.append((self.names.get(pid, pid), ecx, a1, a2, a3))
+            pid, ecx, a1, a2, a3, ret = struct.unpack_from('<IIIIII', data, i)
+            out.append((self.names.get(pid, pid), ecx, a1, a2, a3, ret))
         if clear:
             sm.write_value(self.h, self.ptr, struct.pack('<I', self.buf))
         return out

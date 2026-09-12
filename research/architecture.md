@@ -1404,6 +1404,57 @@ package's - so there the box stays off.
 
 ---
 
+## Vehicles and their crews: when a vehicle is left standing empty
+
+An enemy vehicle is driven by soldiers like any other: its seats are a
+list at `+0x430` of the vehicle (a `std::list`, the count at `+0x434`, each
+node's `+0x10` the soldier; passengers the same at `+0x43C`/`+0x440`), and
+the soldiers in it are ordinary units of the enemy player, alive, at the
+vehicle's own position, not drawn. What happens to them when the vehicle
+is hit is one function, `CY2KKIUnit::TakeDamage` (`0x71D4E0`), on top of
+the ordinary damage of [weapons.md](weapons.md):
+
+```
+if armour left < the round's "penetrates below":
+    for every soldier in the seats:
+        if rand(400) - 100 < "penetrates below":
+            the soldier takes the same hit (vs soldiers, less his own vest)
+the vehicle takes the hit as usual
+```
+
+So the crew is reached only by a round whose `penetrates below` is above
+what armour the vehicle still has, and then each crewman, independently,
+with the chance `(penetrates below + 100) / 400`, capped at one:
+
+| round | penetrates below | reaches the crew when armour is | chance per crewman per hit |
+|---|---|---|---|
+| AK-74 5.45 mm | 4 | gone | 26 % |
+| M79 / Plamja 40 mm HE | 60 | below 60 | 40 % |
+| Dragunov 5.56 mm | 200 | below 200 - a Hummer's 200 after the first hit | 75 % |
+| RPG-7 | 500 | below 500 - a BTR-80's 1500 after two hits | 100 % |
+
+Watched live with [tools/probe.py](tools/probe.py) on `TakeDamage`: an
+M79 stripping a BTR-80 (armour 1500, 120 hit points) killed the two
+crewmen in the same seconds its hit points went, because 60 is next to
+nothing; a Dragunov on a Hummer (armour 200, 50 hit points) killed the
+first crewman with its first hits, at armour 156, and the second by the
+third hit - the Hummer stood at 39 of 50 with nobody in it. That is the
+recipe for an intact enemy vehicle: a round that penetrates deep but does
+little to the vehicle's hit points (the Dragunov does 3-4), on a vehicle
+whose armour is under the round's threshold. The M34 grenade's fire
+(`penetrates below` 60) reaches a crew only once the armour is gone.
+
+A vehicle with no crew is what the option "show empty vehicles on the
+minimap" is about, and what the squad can take. It does not stay empty on
+its own account: the enemy AI puts nearby soldiers into it - in the same
+test three infantrymen from a hundred units away had boarded the Hummer
+within three minutes. Nobody bails out of a damaged vehicle: the only
+callers of the get-out orders (`Commando_GetOut` slot `0x34C`,
+`Commando_AllGetOut` slot `0x388`) are the player's interface, mission
+script events and the Ural unloading its passengers.
+
+---
+
 ## A map of the exe, from the game's own trace calls
 
 The game has no RTTI - the twenty type names in it all belong to the standard
