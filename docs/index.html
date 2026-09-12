@@ -201,16 +201,6 @@ footer{padding:44px 0 64px;color:var(--dim);font-size:14px}
         hit and does the vehicle 3-4 points. Two crewmen dead, the Hummer standing at 39 of 50. Hurry: within three
         minutes the enemy AI had walked three infantrymen over and put them in. Nobody ever bails out - the get-out
         order is only ever given by the player, a mission script, or a Ural unloading.</li>
-      <li><b>Every shot is three numbers and a threshold.</b> A round takes from the armour pool first; the hit
-        points lose anything only while the armour left is under the round's threshold. So an AK-74 has to strip
-        a BTR-80's 1500 armour three points at a time before its 2-3 points of hit-point damage ever count, while
-        an RPG-7 takes a T-55's 2500 in two hits and then does 150-200 to its 100 hit points.
-        <a href="arsenal.html">The Arsenal</a> has every number.</li>
-      <li><b>The engine knows its grenades by number.</b> Adding a sixth thrown weapon was two records in a data
-        file - and then a dozen switch statements and lookup tables inside soa.exe that name 131, 132, 136, 146
-        and 147: the factory, the constructor that makes the round, what a soldier may hold, which animation
-        event is a throw, the projectile, the icon, the size of the inventory cell, the trader's stock, and which
-        grenade the hand takes next. Each had to learn 150.</li>
       <li><b>The air strike was there all along.</b> The game carries the MiG-23 and the MiG-29 and a whole
         <code>AirStrike.cpp</code>: a plane with bombs in the hangar puts a jet in the ring menu - but only in
         missions whose designer placed target markers, and none of the campaign's has any. It was tested from a
@@ -229,9 +219,6 @@ footer{padding:44px 0 64px;color:var(--dim);font-size:14px}
         archive in two different encodings - the directory says one thing, the entry another - so the body hit
         sounds never played on any machine. Fixed with a loose file, because loose files beside the game win
         over the archives; that one rule is behind most of what is here.</li>
-      <li><b>Unborn.</b> The project's code name survives in the source paths inside the executable
-        (<code>y2k_source\unborn</code>), a model called <code>UnbornKnight</code> has its own camouflage event,
-        and the saves still carry the trigger groups under the names their German authors typed.</li>
     </ul>
   </div>
 </section>
