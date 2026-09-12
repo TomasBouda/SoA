@@ -58,6 +58,22 @@ code{background:var(--sunk);border:1px solid var(--line);border-radius:4px;
 pre{background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:14px 16px;
     overflow-x:auto;font-family:ui-monospace,Consolas,monospace;font-size:13.5px;
     color:var(--dim);margin:0}
+.gallery{display:grid;gap:14px;grid-template-columns:1.5fr 1fr;grid-template-rows:230px 230px;margin:0 0 26px}
+.gallery figure{position:relative;overflow:hidden;border-radius:10px;border:1px solid var(--line);background:var(--sunk)}
+.gallery figure:first-child{grid-row:1/3}
+.gallery img{width:100%;height:100%;object-fit:cover;display:block}
+.gallery figcaption{position:absolute;left:0;right:0;bottom:0;margin:0;padding:12px 14px 10px;
+  background:linear-gradient(transparent,rgba(0,0,0,.78));color:var(--text);font-size:13.5px}
+@media(max-width:720px){.gallery{grid-template-columns:1fr;grid-template-rows:auto}.gallery figure:first-child{grid-row:auto}.gallery img{height:200px}}
+.patchlist{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));margin-top:22px}
+.patchlist .card b{color:var(--text)}
+.arsenal{display:grid;gap:22px;grid-template-columns:1fr 300px;align-items:center}
+@media(max-width:720px){.arsenal{grid-template-columns:1fr}}
+.arsenal img{width:100%;border-radius:9px;border:1px solid var(--line);display:block}
+.cta{display:inline-block;margin-top:14px;padding:11px 18px;border-radius:9px;text-decoration:none;
+  background:linear-gradient(180deg,rgba(200,162,74,.22),rgba(200,162,74,.08));border:1px solid rgba(200,162,74,.55);
+  color:var(--text);font-weight:600}
+.cta:hover{border-color:var(--accent);color:var(--text)}
 ul.plain{list-style:none;padding:0;margin:0}
 ul.plain li{padding:10px 0;border-bottom:1px solid var(--line);color:var(--dim);font-size:15px}
 ul.plain li:last-child{border-bottom:0}
@@ -112,7 +128,8 @@ footer{padding:44px 0 64px;color:var(--dim);font-size:14px}
         drivable from a phone on the same network - because leaving full screen to type
         something loses the window.</p></div>
       <div class="card"><h3>The mission map</h3><p>The map of what you are playing, read out
-        of the game's memory while it runs.</p></div>
+        of the game's memory while it runs - and a button on it that calls an air strike on
+        the point you click.</p></div>
       <div class="card"><h3>All 1253 models</h3><p>Every soldier, vehicle, building and tree
         the game draws, with their textures, turned under the mouse.</p></div>
     </div>
@@ -121,6 +138,46 @@ footer{padding:44px 0 64px;color:var(--dim);font-size:14px}
       <figure><img src="img/bm21_h.png" alt="A BM-21 Grad rocket truck"><figcaption>BM-21 Grad</figcaption></figure>
       <figure><img src="img/bmp1_h.png" alt="A BMP-1 armoured vehicle"><figcaption>BMP-1</figcaption></figure>
       <figure><img src="img/ak74.png" alt="An AK-74 rifle"><figcaption>AK-74</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>The game itself, made better to fight in</h2>
+    <p class="dim" style="max-width:680px">Beyond the wrapper and the tools, the launcher changes a handful of
+      bytes inside <code>soa.exe</code> - each found by its surroundings, each with a box in the
+      launcher's <b style="color:var(--text)">Patches</b> window, each put back with one click. Together they
+      give the 2002 game what it never had:</p>
+    <div class="gallery">
+      <figure><img src="img/patches/airstrike-ring-menu.jpg" alt="The ring menu on open ground with the jet icon in it"><figcaption><b>An air strike where you click.</b> The game had the button but only showed it where a mission designer placed markers - none of the campaign's did. Now the jet is in the ring menu of every mission, whenever a bomber with bombs sits in your hangar.</figcaption></figure>
+      <figure><img src="img/patches/airstrike-pings.jpg" alt="The bomb landing, with red rings marking the point on the minimap"><figcaption><b>The bomb lands, the minimap pings, the radio talks.</b></figcaption></figure>
+      <figure><img src="img/patches/camera-high.jpg" alt="The battlefield from high above"><figcaption><b>A camera that shows the whole battle</b> - 1.5 to 150 units of height instead of 2 to 30, and it stops at the limits instead of sliding.</figcaption></figure>
+    </div>
+    <div class="patchlist cards">
+      <div class="card"><h3>Pause and give orders</h3><p>The turn-based mode the 1.0 readme promised and no patch ever shipped: the pause key stops time, not you. Select, plan, order - then let it run.</p></div>
+      <div class="card"><h3>Shift moves the camera five times as fast</h3><p>The game has no key for it. Hold Shift while panning, turning or zooming.</p></div>
+      <div class="card"><h3>Stays open when you look away</h3><p>The stock game drops to the taskbar the moment another window is clicked, full screen too. Not any more - so the console and the map can be used beside it.</p></div>
+      <div class="card"><h3>No logos, no intro, straight to the menu</h3><p>And the log readable while the game writes it, which is what lets the console follow it live.</p></div>
+      <div class="card"><h3>Central European letters</h3><p>The fonts ask Windows for the East European character set, so a Czech or Polish translation keeps its diacritics on any Windows.</p></div>
+      <div class="card"><h3>A mailbox for tools</h3><p>A few bytes the game reads once a frame and answers on its own thread - how the map window reads the mission live, and how a program can play the game.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>The arsenal, in numbers</h2>
+    <div class="arsenal">
+      <div>
+        <p class="dim">What every round of ammunition does to a soldier, to a vehicle's hit points and to its
+          armour, the armour it has to get under, the blast radius; every weapon's range and rate of fire;
+          every vehicle's hit points and armour. Read off the game's code and checked with the gun - an AK‑74
+          does 9–11 to a monk and 3–4 to a BTR‑80's armour, and nothing to its hit points until the armour is
+          gone. Sortable, searchable, with the game's own pictures.</p>
+        <a class="cta" href="arsenal.html">Open the Arsenal →</a>
+      </div>
+      <img src="img/ak74.png" alt="An AK-74 rifle">
     </div>
   </div>
 </section>
@@ -152,6 +209,9 @@ footer{padding:44px 0 64px;color:var(--dim);font-size:14px}
       <li><b>The engine.</b> 538 source file names survive inside the executable, so a
         function can be traced back to the file its authors wrote it in.
         <a href="https://github.com/TomasBouda/SoA/blob/main/research/architecture.md">architecture.md</a></li>
+      <li><b>The weapons.</b> Three damage ranges and a threshold per round, hidden in
+        sixteen unnamed numbers; named by reading the damage code and shooting things.
+        <a href="https://github.com/TomasBouda/SoA/blob/main/research/weapons.md">weapons.md</a></li>
       <li><b>What did not work.</b> As much of
         <a href="https://github.com/TomasBouda/SoA/blob/main/research/TODO.md">TODO.md</a>
         records something tried that failed, and why it looked as though it had worked, as
