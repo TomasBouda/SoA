@@ -100,6 +100,10 @@ internal sealed class KeysWindow : Window
     private readonly List<Slot> _slots = new List<Slot>();
     private readonly Dictionary<KeyAction, Button> _resets = new Dictionary<KeyAction, Button>();
     private Slot _listening;
+    private readonly System.Windows.Threading.DispatcherTimer _giveUp = new System.Windows.Threading.DispatcherTimer
+    {
+        Interval = TimeSpan.FromSeconds(12)
+    };
     private TextBlock _status;
     private bool _locked;
 
@@ -119,6 +123,7 @@ internal sealed class KeysWindow : Window
         PreviewMouseDown += OnMouse;
         PreviewMouseWheel += OnWheel;
         Deactivated += (s, e) => StopListening();
+        _giveUp.Tick += (s, e) => StopListening();     // a row left listening stops on its own
     }
 
     private UIElement BuildLayout()
@@ -340,6 +345,8 @@ internal sealed class KeysWindow : Window
         if (_locked) return;
         StopListening();
         _listening = slot;
+        _giveUp.Stop();
+        _giveUp.Start();
         slot.Button.Content = "press a key...";
         slot.Button.Foreground = Accent;
         slot.Button.BorderBrush = Accent;
@@ -349,6 +356,7 @@ internal sealed class KeysWindow : Window
 
     private void StopListening()
     {
+        _giveUp.Stop();
         if (_listening == null) return;
         Slot s = _listening;
         _listening = null;
@@ -360,6 +368,7 @@ internal sealed class KeysWindow : Window
     {
         Slot s = _listening;
         if (s == null) return;
+        _giveUp.Stop();
         _listening = null;
         s.Button.BorderBrush = Line;
         Write(s.Action, s.Number, code);
@@ -409,6 +418,12 @@ internal sealed class KeysWindow : Window
     private void OnWheel(object sender, MouseWheelEventArgs e)
     {
         if (_listening == null) return;
+        // only over the button that is listening - anywhere else the wheel
+        // scrolls the list, which is what a wheel over a list should do. A
+        // test once left a row listening and a scroll bound "wheel up".
+        var over = e.OriginalSource as DependencyObject;
+        while (over != null && !(over is Button)) over = VisualTreeHelper.GetParent(over);
+        if (over != _listening.Button) return;
         e.Handled = true;
         Take(e.Delta < 0 ? KeyNames.Mouse + 3 : KeyNames.Mouse + 4);
     }
