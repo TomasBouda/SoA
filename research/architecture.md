@@ -1358,6 +1358,7 @@ changed:
 | the size map, `[tools]+0x14`, built in `0x56FE10` | number → the size class of the HUD's inventory cell | the soldier panel draws a null image and the game dies |
 | the trader's restock (`0x525B70`) | one of each grenade, ten of each consumable | the trader never has one |
 | the re-arm chain (`0x6F8E29`) | after the last of a kind is thrown, the hand looks for the next kind | a pack of M34s in the backpack is not picked up |
+| the projectile's tick after landing (`0x5C8B80`) and its removal (`0x5C8E20`) | a smoke grenade lays the smoke bit (`0x200000`) into the map cells around it every tick and clears them when it goes; a fire round burns for fifteen seconds instead, an explosion every hundred milliseconds. The M34 does both: each burn tick falls into the smoke loop, and the removal clears the square for it as for a smoke grenade | fire without smoke - or, with the first half alone, smoke that never lifts |
 
 Two of these were found by reading, the rest by watching. The throw was the
 one that resisted: `CanUse` patched, the item in the hand, the order

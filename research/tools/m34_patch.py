@@ -34,6 +34,9 @@ added to each:
     the trader's restock (0x525B70)        one M34 beside the other grenades
     the re-arm chain (0x6F8E29)            after the last of a kind is thrown
                                            the hand looks for the next kind
+    the projectile's tick and removal      the smoke bits a smoke grenade lays
+    (0x5C8B80, 0x5C8E20)                   in the map, laid by the M34 while
+                                           it burns and taken away after
 
 The code that does not fit in a byte or two goes into caves in the zero
 padding at the end of .text, behind the air strike's, at 0x7B4B00 on. Each
@@ -151,6 +154,35 @@ def cave_trader(at):
     return c
 
 
+def cave_smoke_on(at):
+    """The projectile's tick after landing (0x5C8B80): a round with the fire
+    effect burns for fifteen seconds, an explosion every hundred
+    milliseconds, and returns; a smoke grenade lays the smoke bit
+    (0x200000) into the map cells around it instead. Ours does both: at
+    the end of a burn tick, if the round is 151, fall into the smoke loop
+    (0x5C8D60) rather than returning. edi is the round's settings, its
+    number at +8; ebx is zero, which the loop wants too."""
+    c = b'\x89\x9E\x88\x01\x00\x00'                                 # mov [esi+0x188],ebx  (the displaced store)
+    c += b'\x81\x7F\x08' + struct.pack('<I', ROUND) + jcc(JE, at + 13, 0x5C8D60)   # cmp [edi+8],ROUND ; je the smoke loop
+    c += b'\x5F\x5E\x5D\x5B\x83\xC4\x18\xC3'                        # pop edi ; pop esi ; pop ebp ; pop ebx ; add esp,0x18 ; ret
+    assert len(c) == 27, len(c)
+    return c
+
+
+def cave_smoke_off(at):
+    """The projectile's removal (0x5C8E20) clears the smoke bits for the two
+    smoke types; for the hand grenade's type with our round in it too, or
+    the M34's smoke would stay on the map for good. ecx is the settings,
+    checked for null the way the original does a few bytes on."""
+    c = b'\x3D\x9A\x38\x01\x00' + jcc(JE, at + 5, 0x5C8E51)           # cmp eax,0x1389a ; je clear
+    c += b'\x3D' + struct.pack('<I', PROJECTILE) + jcc(JNE, at + 16, 0x5C8F07)   # cmp eax,our type ; jne no
+    c += b'\x85\xC9' + jcc(JE, at + 24, 0x5C8F07)                      # test ecx,ecx ; je no
+    c += b'\x81\x79\x08' + struct.pack('<I', ROUND) + jcc(JNE, at + 37, 0x5C8F07)   # cmp [ecx+8],ROUND ; jne no
+    c += jmp(at + 43, 0x5C8E51)
+    assert len(c) == 48, len(c)
+    return c
+
+
 def cave_reequip(at):
     """After the last grenade of a kind is thrown (0x6F8E29) the hand looks
     for the next kind in the pack; ours comes after the stun grenade."""
@@ -169,6 +201,7 @@ def cave_reequip(at):
 CAVES = {
     'canuse_a': 0x7B4B00, 'canuse_b': 0x7B4B20, 'projectile': 0x7B4B40, 'round': 0x7B4B80,
     'icon': 0x7B4BD0, 'reequip': 0x7B4C00, 'size': 0x7B4C50, 'trader': 0x7B4C80,
+    'smoke_on': 0x7B4CD0, 'smoke_off': 0x7B4D00,
 }
 
 
@@ -205,6 +238,10 @@ def patches():
          0x570E42, bytes.fromhex('5f5e89185d5b83c418c3'), jmp(0x570E42, CAVES['size']) + b'\x90' * 5),
         ('the trader stocks one M34 with the other grenades',
          0x526438, bytes.fromhex('8bcbc6431401e8fddfffff'), jmp(0x526438, CAVES['trader']) + NOP * 6),
+        ('the M34 lays smoke while it burns',
+         0x5C8D52, bytes.fromhex('899e880100005f5e5d5b83c418c3'), jmp(0x5C8D52, CAVES['smoke_on']) + NOP * 9),
+        ('the M34 takes its smoke away when it is done',
+         0x5C8E46, bytes.fromhex('3d9a3801000f85b6000000'), jmp(0x5C8E46, CAVES['smoke_off']) + NOP * 6),
         ('the hand re-arms with 150 when the other grenades are gone',
          0x6F8FF1, b'\x81\x7B\x14\x93\x00\x00\x00\x74\x20', jmp(0x6F8FF1, CAVES['reequip']) + b'\x90' * 4),
     ]
@@ -217,6 +254,8 @@ def patches():
         ('reequip', CAVES['reequip'], cave_reequip(CAVES['reequip'])),
         ('size', CAVES['size'], cave_size(CAVES['size'])),
         ('trader', CAVES['trader'], cave_trader(CAVES['trader'])),
+        ('smoke_on', CAVES['smoke_on'], cave_smoke_on(CAVES['smoke_on'])),
+        ('smoke_off', CAVES['smoke_off'], cave_smoke_off(CAVES['smoke_off'])),
     ]
     # the caves must not overlap
     spans = sorted((va, va + len(b)) for _, va, b in caves)
