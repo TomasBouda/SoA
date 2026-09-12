@@ -190,6 +190,54 @@ footer{padding:44px 0 64px;color:var(--dim);font-size:14px}
 
 <section>
   <div class="wrap">
+    <h2>Things the game never told you</h2>
+    <p class="dim" style="max-width:680px">Found by reading the executable and checking with the gun. Each has
+      its chapter in <a href="https://github.com/TomasBouda/SoA/blob/main/research/architecture.md">architecture.md</a>.</p>
+    <ul class="plain">
+      <li><b>How to take an enemy vehicle in one piece.</b> Its crew are ordinary soldiers sitting inside, and a hit
+        reaches them only when the armour left is below the round's <i>penetrates below</i> - then each crewman,
+        with a chance of (that number + 100)/400. An AK-74 (4) gets through once the armour is gone, one shot in
+        four; an RPG (500) always, and wrecks the vehicle; a Dragunov (200) reaches a Hummer's crew from the first
+        hit and does the vehicle 3-4 points. Two crewmen dead, the Hummer standing at 39 of 50. Hurry: within three
+        minutes the enemy AI had walked three infantrymen over and put them in. Nobody ever bails out - the get-out
+        order is only ever given by the player, a mission script, or a Ural unloading.</li>
+      <li><b>Every shot is three numbers and a threshold.</b> A round takes from the armour pool first; the hit
+        points lose anything only while the armour left is under the round's threshold. So an AK-74 has to strip
+        a BTR-80's 1500 armour three points at a time before its 2-3 points of hit-point damage ever count, while
+        an RPG-7 takes a T-55's 2500 in two hits and then does 150-200 to its 100 hit points.
+        <a href="arsenal.html">The Arsenal</a> has every number.</li>
+      <li><b>The engine knows its grenades by number.</b> Adding a sixth thrown weapon was two records in a data
+        file - and then a dozen switch statements and lookup tables inside soa.exe that name 131, 132, 136, 146
+        and 147: the factory, the constructor that makes the round, what a soldier may hold, which animation
+        event is a throw, the projectile, the icon, the size of the inventory cell, the trader's stock, and which
+        grenade the hand takes next. Each had to learn 150.</li>
+      <li><b>The air strike was there all along.</b> The game carries the MiG-23 and the MiG-29 and a whole
+        <code>AirStrike.cpp</code>: a plane with bombs in the hangar puts a jet in the ring menu - but only in
+        missions whose designer placed target markers, and none of the campaign's has any. It was tested from a
+        console command. Now the button is in every mission, on the point clicked.</li>
+      <li><b>There is a command console, and no way to open it.</b> Fifty typed commands with help texts -
+        <code>AirStrike</code>, height-map export, path and visibility overlays, a replay system that records
+        every tick for debugging multiplayer desyncs - and not one key, panel or argument in the shipped build
+        brings up a line to type into. The launcher's console reaches them through the game's own dispatcher.</li>
+      <li><b>The turn-based patch that never shipped.</b> The 1.0 readme mentions a separate download to pause
+        and give orders. It never reached 1.1.2: the pause key opens a panel that swallows every click. It is
+        built now, in the mission's own tick.</li>
+      <li><b>F12 takes a screenshot.</b> Bound in the shipped settings, documented nowhere:
+        <code>shot0000.png</code> and up, in the game folder. The only picture you can take of a full-screen game
+        without leaving it.</li>
+      <li><b>The hit sounds were silent for twenty years.</b> Five sound files whose names were written into the
+        archive in two different encodings - the directory says one thing, the entry another - so the body hit
+        sounds never played on any machine. Fixed with a loose file, because loose files beside the game win
+        over the archives; that one rule is behind most of what is here.</li>
+      <li><b>Unborn.</b> The project's code name survives in the source paths inside the executable
+        (<code>y2k_source\unborn</code>), a model called <code>UnbornKnight</code> has its own camouflage event,
+        and the saves still carry the trigger groups under the names their German authors typed.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
     <h2>Rather make the textures yourself?</h2>
     <p class="dim">The tools that made them are in the repository and they run against your
       own copy of the game, so you need not take a 316 MB download on trust:</p>
