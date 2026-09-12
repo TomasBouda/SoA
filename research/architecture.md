@@ -1352,6 +1352,7 @@ changed:
 | the thrown weapon's constructor (`0x5E6720`) | a switch on the number makes the round: 132 gets 134, 136 gets 135... | the M34 has no round, the HUD shows 0 |
 | `CanUse` (`0x700650`) | two lists of what a soldier may hold, on foot and in a vehicle | the Equip screen hides it |
 | the animation event table, a byte per number (`0x6F9CD0`) | 1 means the animation's event is a throw, 2 a shot | the arm swings and nothing leaves the hand |
+| the attack animation tables, a byte per number in each character class (`0x703B5C` the man, `0x70633C` the woman, and the monk's, the Nitro man's, the mutant's) | 4 the throw, 5 the rifle shot | the M34 is fired from the shoulder |
 | `Throw` (`0x5E6980`) | the projectile type by number: 0x13895 the grenade's, 0x13896 the Molotov's, and so on | the type is an uninitialised local |
 | the icon map, `[tools]+4`, built in `0x56EC70` | number → the ordinal of the `Items.gui` record | the row has no icon; the record's name is never looked at |
 | the size map, `[tools]+0x14`, built in `0x56FE10` | number → the size class of the HUD's inventory cell | the soldier panel draws a null image and the game dies |
@@ -1390,7 +1391,11 @@ pack, and the empty pack goes away like the others.
 ![In the Equip screen](pictures/m34-equip.jpg)
 ![The hint in the HUD](pictures/m34-hud-hint.jpg)
 
-Not done, and known: the Object Information screen of the base is a fixed
+Not done, and known: the flame. The burning damage is there and the trace
+shows the Molotov's flame effect (`CY2K_FX_FireShape01`) ticking for the
+M34 too, but nothing is drawn where it lands, while a Molotov burns
+visibly for many seconds; something in the effect's parameters hides it,
+and it is on the TODO. The Object Information screen of the base is a fixed
 list with 3D models and does not know it; the stock room's 3D shelves
 (`Y2KBunkerLayoutStorage`, a map of number → shelf slot) do not show it;
 the AI does not throw it. And the kit variant of the package cannot have

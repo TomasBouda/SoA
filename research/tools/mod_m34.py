@@ -42,10 +42,7 @@ WEAPON, ROUND = m34_patch.NEW, m34_patch.ROUND      # 150 and 151
 WEAPON_ID, ROUND_ID = 'SET_M34', 'SET_MUN_M34'
 TEXTS = {
     'TRES_EQUIPMENT_M34': 'M34 WP Grenade',
-    'TRES_EQUIPMENT_M34_HINT': 'M34 white phosphorus grenade, three to a pack. Thrown like a hand '
-                               'grenade; a few seconds after it lands the burst scatters burning '
-                               'phosphorus over a wide circle that keeps burning for a while. Deadly '
-                               'to men in the open, of little use against armour.',
+    'TRES_EQUIPMENT_M34_HINT': 'M34, white phosphorus',
     'TRES_EQUIPMENT_AMMO_M34': 'M34 WP x 3',
     'TRES_EQUIPMENT_AMMO_M34_HINT': 'white phosphorus grenades, three to a pack',
 }

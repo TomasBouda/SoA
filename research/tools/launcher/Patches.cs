@@ -197,6 +197,11 @@ internal static class Patches
             NeedsFile = @"Data\GameData\Data.set", NeedsText = "SET_M34",
             Sites = new[]
             {
+                At(0x303BBC, "05", "04"),
+                At(0x30639C, "05", "04"),
+                At(0x308C5C, "05", "04"),
+                At(0x30B634, "05", "04"),
+                At(0x18EEAC, "05", "04"),
                 At(0x1DFCF9, "0606", "0400"),
                 At(0x2F9D3F, "02", "01"),
                 At(0x300762, "3D930000000F85EC000000", "E999430B00909090909090"),

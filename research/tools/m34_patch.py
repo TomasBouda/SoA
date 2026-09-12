@@ -19,6 +19,10 @@ added to each:
                                            animation's event is a throw, not
                                            a shot - without it the arm swings
                                            and nothing leaves the hand
+    the attack animation tables            a byte per number in each
+    (0x703B5C and four more)               character class: 4 the throw, 5 a
+                                           rifle shot - without it the M34 is
+                                           fired from the shoulder
     Throw (0x5E6980)                       the projectile type by number; off
                                            the table it is uninitialised
     the icon map ([tools]+4, 0x56EC70)     number -> record of Items.gui;
@@ -171,6 +175,16 @@ CAVES = {
 def patches():
     """(name, VA, original, patched) for the sites, and (name, VA, bytes) for the caves."""
     sites = [
+        # the attack animation is chosen by a table per character class,
+        # indexed by the number of the item in hand: 4 is the throw, 5 the
+        # rifle shot that everything unknown gets (Con_Man 0x703192,
+        # Con_Woman 0x705972, Monk 0x708232, Nitro_Man 0x70ABC9, Mutant
+        # 0x58E482 - the same table in each, at these five addresses)
+        ('the man throws 150 instead of shooting it', 0x703B5C + NEW - 54, b'', b''),
+        ('the woman throws 150 instead of shooting it', 0x70633C + NEW - 54, b'', b''),
+        ('the monk throws 150 instead of shooting it', 0x708BFC + NEW - 54, b'', b''),
+        ('the nitro man throws 150 instead of shooting it', 0x70B5D4 + NEW - 54, b'', b''),
+        ('the mutant throws 150 instead of shooting it', 0x58EE4C + NEW - 54, b'', b''),
         ('the factory makes 150 a thrown weapon and 151 a round',
          0x5DFC64 + NEW - 1, b'\x06\x06', b'\x04\x00'),
         ('the animation event of 150 is the throw',

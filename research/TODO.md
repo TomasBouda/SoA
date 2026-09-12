@@ -478,13 +478,33 @@ the console window can now `quicksave` and `quickload`
             (`Y2KBunkerLayoutStorage`, number → shelf slot);
       - [ ] the enemy AI never throws one (`Y2KKIAdd`, 0x573F50, has the
             same five numbers);
-      - [ ] the fire: the burst is the Molotov's fire effect, one flame
-            that burns a second or two. A wider, longer fire would need the
-            fire effect itself looked at (`0x56D9A0`, the explosion, and
-            the burning tick);
+      - [ ] **the flame after the burst.** The burning damage is there and
+            the trace shows `CY2K_FX_FireShape01` ticking for the M34 as it
+            does for the Molotov, but nothing is drawn where the M34 lands
+            while the Molotov leaves a flame for many seconds. Something in
+            how the effect is parametrised - the radius (5 against 2.5),
+            the height of the burst, the projectile - hides it; the FX
+            requests are built in `0x5E4110`'s neighbourhood with
+            positional parameters (`0x67e290`). Filming throws with the
+            camera on the thrower is too slow a way to bisect this; see
+            the test mission below;
+      - [ ] **a test mission.** Every check of the M34 so far went through
+            the base screen, the Equip window and a real mission with
+            enemies wandering about. A small flat map with the squad, a
+            few targets and nothing else, loaded straight from the menu
+            (`mission_cheat.load_save` already does that for a save), and
+            a console command that makes items with the factory
+            (`0x5DFAB0`) and puts them in a soldier's hand through the
+            game's own `Commando_ChangeEquipment` (slot 0x330), would make
+            an experiment a minute instead of five. The mission format is
+            the obstacle (see "The mission format, where mis.py stopped");
+            a save of a real mission with everything but the squad killed
+            off may do instead;
       - [ ] a second new weapon would show what is M34-specific in the
             patch and what is general - the caves compare with one number
             each; a table of new numbers would take several;
+      - [x] ~~the throw played the rifle animation~~ - a table per character
+            class picks the attack animation by item number; five bytes;
       - [ ] the kit cannot have it: the launcher patches the player's exe
             and the data files are the package's. The launcher could carry
             the four files and write them beside the game.

@@ -156,4 +156,4 @@ equipment	237	SET_MINENKOEDER	Mine Bait	Gear and weapons	SET_MINENKOEDER.png			T
 equipment	238	SET_PEILSENDER	Bug	Gear and weapons	SET_PEILSENDER.png			Tracking devices are indispensable for carrying out air attacks. Once in place, they identify the exact targets for the fighter jet's bombs.		300
 equipment	251	SET_CRAWLERSENDER	Crawler Bug	Gear and weapons	SET_CRAWLERSENDER.png			Bug from Crawler Mine		300
 equipment	151	SET_MUN_M34	M34 WP x 3	Ammunition				white phosphorus grenades, three to a pack	3	40
-equipment	150	SET_M34	M34 WP Grenade	Gear and weapons	SET_M34.png	151		M34 white phosphorus grenade, three to a pack. Thrown like a hand grenade; a few seconds after it lands the burst scatters burning phosphorus over a wide circle that keeps burning for a while. Deadly to men in the open, of little use against armour.		40
+equipment	150	SET_M34	M34 WP Grenade	Gear and weapons	SET_M34.png	151		M34, white phosphorus		40
