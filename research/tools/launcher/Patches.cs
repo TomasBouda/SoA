@@ -15,6 +15,13 @@
 // the bytes there are checked to be the zeros or the code before anything is
 // written. The character set is the odd one out: ten identical sites, told
 // apart by their count.
+//
+// The fonts are the other odd one: a name, not a box. The game asks Windows
+// for "Tahoma" nine times (every screen) and for "Arial" once (baked into a
+// texture), pushing the address of a string in .data each time. Another name
+// goes into the zero padding at the end of .text and the pushes are pointed
+// at it; the shipped name puts the pushes back and the padding to zero, so
+// the default is the file as it came.
 
 using System;
 using System.Collections.Generic;
@@ -42,6 +49,24 @@ internal sealed class ExePatch
     /// A file beside soa.exe the patch cannot do without, and a text that
     /// must be in it; null for a patch that is bytes alone.
     public string NeedsFile, NeedsText;
+}
+
+/// One of the two fonts the game asks Windows for: where its pushes are,
+/// what they pointed at as shipped, and where another name is kept.
+internal sealed class FontSlot
+{
+    public string Key, Name, Tip, Shipped;
+    /// File offsets of the four-byte address in each `push`.
+    public int[] Pushes;
+    /// The shipped address (the string in .data), and the padding a new name goes to.
+    public byte[] ShippedPointer;
+    public int Cave;
+    public const int Room = 32;          // LF_FACESIZE: 31 characters and the terminator
+
+    public byte[] CavePointer
+    {
+        get { return BitConverter.GetBytes(0x400000 + Cave); }
+    }
 }
 
 internal static class Patches
@@ -241,6 +266,74 @@ internal static class Patches
         },
     };
 
+    public static readonly FontSlot[] Fonts =
+    {
+        new FontSlot
+        {
+            Key = "screens", Name = "The screens", Shipped = "Tahoma",
+            Tip = "The menus, the trader, the equipment screen, the panels, the tooltips "
+                + "and the briefings: nine CreateFontA calls in nine sizes, all for Tahoma.",
+            Pushes = new[] { 0x2DA4E3, 0x2DA553, 0x2DA5B9, 0x2DA625, 0x2DA68D,
+                             0x2DA6F9, 0x2DA763, 0x2DA7CD, 0x2DA833 },
+            ShippedPointer = H("60808600"), Cave = 0x3B4E00,
+        },
+        new FontSlot
+        {
+            Key = "bitmap", Name = "The text system's own font", Shipped = "Arial",
+            Tip = "Arial at 16 pixels, made once at start before the nine sizes above, "
+                + "as the default of the routine that bakes a Windows font into a "
+                + "texture. Rarely if ever on screen; here so that both names in the "
+                + "exe can be set.",
+            Pushes = new[] { 0x2311B7 },
+            ShippedPointer = H("AC118600"), Cave = 0x3B4E20,
+        },
+    };
+
+    /// The face a slot asks for: the shipped name, the one in the cave, or
+    /// null when the pushes are neither - not this build, or damaged.
+    public static string FontOf(byte[] data, FontSlot f)
+    {
+        bool shipped = true, cave = true;
+        foreach (int at in f.Pushes)
+        {
+            if (!Matches(data, at, f.ShippedPointer)) shipped = false;
+            if (!Matches(data, at, f.CavePointer)) cave = false;
+        }
+        if (shipped) return f.Shipped;
+        if (!cave || f.Cave + FontSlot.Room > data.Length) return null;
+        int end = f.Cave;
+        while (end < f.Cave + FontSlot.Room && data[end] != 0) end++;
+        return System.Text.Encoding.ASCII.GetString(data, f.Cave, end - f.Cave);
+    }
+
+    /// Points the slot at a face; the shipped name puts the file back as it
+    /// came. Null on success, otherwise why not.
+    public static string SetFont(string exePath, FontSlot f, string face)
+    {
+        face = (face ?? "").Trim();
+        if (face.Length == 0 || face.Length >= FontSlot.Room)
+            return "a font name is 1 to " + (FontSlot.Room - 1) + " characters";
+        foreach (char c in face)
+            if (c < ' ' || c > '~') return "a font name is plain characters only; \"" + face + "\" is not";
+        if (!File.Exists(exePath)) return "soa.exe was not found";
+        byte[] data;
+        try { data = File.ReadAllBytes(exePath); }
+        catch (Exception ex) { return ex.Message; }
+        string now = FontOf(data, f);
+        if (now == null) return "this is not the build of soa.exe we know";
+        if (now == face) return null;
+
+        bool asShipped = string.Equals(face, f.Shipped, StringComparison.OrdinalIgnoreCase);
+        byte[] pointer = asShipped ? f.ShippedPointer : f.CavePointer;
+        var cave = new byte[FontSlot.Room];
+        if (!asShipped) System.Text.Encoding.ASCII.GetBytes(face).CopyTo(cave, 0);
+        foreach (int at in f.Pushes) Array.Copy(pointer, 0, data, at, 4);
+        Array.Copy(cave, 0, data, f.Cave, FontSlot.Room);
+        try { File.WriteAllBytes(exePath, data); }
+        catch (Exception ex) { return ex.Message; }
+        return null;
+    }
+
     public static bool Matches(byte[] data, int pos, byte[] want)
     {
         if (pos < 0 || pos + want.Length > data.Length) return false;
@@ -368,6 +461,7 @@ internal sealed class PatchesWindow : Window
 
     private readonly string _exe;
     private readonly List<CheckBox> _boxes = new List<CheckBox>();
+    private readonly List<ComboBox> _fonts = new List<ComboBox>();
     private TextBlock _status;
     private bool _loading;
 
@@ -377,10 +471,18 @@ internal sealed class PatchesWindow : Window
         Title = "Game patches";
         Width = 560;
         SizeToContent = SizeToContent.Height;
+        // as tall as its content up to the screen, then it scrolls: with the
+        // fonts under the boxes it is taller than a 1080 screen
+        MaxHeight = Math.Max(400, SystemParameters.WorkArea.Height - 40);
         Background = Bg;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         ResizeMode = ResizeMode.NoResize;
-        Content = BuildLayout();
+        Content = new ScrollViewer
+        {
+            Content = BuildLayout(),
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+        };
         Loaded += (s, e) => Refresh();
     }
 
@@ -440,6 +542,83 @@ internal sealed class PatchesWindow : Window
             _boxes.Add(box);
         }
 
+        root.Children.Add(new TextBlock
+        {
+            Text = "FONTS",
+            Foreground = Accent,
+            FontSize = 13,
+            FontWeight = FontWeights.Bold,
+            Margin = new Thickness(0, 10, 0, 2),
+        });
+        root.Children.Add(new TextBlock
+        {
+            Text = "The game takes its fonts from Windows by name. Pick one this machine "
+                 + "has, or type a name; the shipped name puts the file back as it came. "
+                 + "A name Windows does not have is answered with whatever it thinks "
+                 + "closest, so the game still starts.",
+            Foreground = Dim,
+            FontSize = 11,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 8),
+        });
+        List<string> installed = InstalledFonts();
+        foreach (FontSlot f in Patches.Fonts)
+        {
+            var frame = new Border
+            {
+                Background = Panel,
+                BorderBrush = Line,
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(12, 8, 12, 8),
+                Margin = new Thickness(0, 0, 0, 6),
+            };
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) });
+            var st = new StackPanel();
+            st.Children.Add(new TextBlock
+            {
+                Text = f.Name + " (" + f.Shipped + " as shipped)",
+                Foreground = Text,
+                FontSize = 12,
+            });
+            st.Children.Add(new TextBlock
+            {
+                Text = f.Tip,
+                Foreground = Dim,
+                FontSize = 11,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 3, 12, 0),
+            });
+            grid.Children.Add(st);
+            var combo = new ComboBox
+            {
+                Tag = f,
+                IsEditable = true,
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Top,
+                ToolTip = f.Tip,
+            };
+            foreach (string name in installed)
+            {
+                // each name drawn in its own face, so the list is its own preview
+                combo.Items.Add(new ComboBoxItem
+                {
+                    Content = name,
+                    FontFamily = new FontFamily(name),
+                    FontSize = 13,
+                });
+            }
+            combo.SelectionChanged += OnFontPicked;
+            combo.LostKeyboardFocus += OnFontTyped;
+            combo.KeyDown += (sender, e) => { if (e.Key == System.Windows.Input.Key.Enter) OnFontTyped(sender, e); };
+            Grid.SetColumn(combo, 1);
+            grid.Children.Add(combo);
+            frame.Child = grid;
+            root.Children.Add(frame);
+            _fonts.Add(combo);
+        }
+
         _status = new TextBlock
         {
             Foreground = Dim,
@@ -449,6 +628,50 @@ internal sealed class PatchesWindow : Window
         };
         root.Children.Add(_status);
         return root;
+    }
+
+    /// The family names Windows has, the two shipped ones first.
+    private static List<string> InstalledFonts()
+    {
+        var names = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (FontFamily fam in Fonts.SystemFontFamilies)
+            {
+                string name = fam.Source;
+                // a family from a file comes as "path#Name"; only the name is a face
+                int hash = name.LastIndexOf('#');
+                if (hash >= 0) name = name.Substring(hash + 1);
+                if (name.Length > 0 && name.Length < FontSlot.Room) names.Add(name);
+            }
+        }
+        catch (Exception) { }
+        var list = new List<string>();
+        foreach (FontSlot f in Patches.Fonts)
+        {
+            if (!list.Contains(f.Shipped)) list.Add(f.Shipped);
+            names.Remove(f.Shipped);
+        }
+        list.AddRange(names);
+        return list;
+    }
+
+    private static string ComboText(ComboBox combo)
+    {
+        var item = combo.SelectedItem as ComboBoxItem;
+        return item != null ? (string)item.Content : combo.Text;
+    }
+
+    private static void ShowFont(ComboBox combo, string face)
+    {
+        combo.SelectedItem = null;
+        foreach (ComboBoxItem item in combo.Items)
+            if (string.Equals((string)item.Content, face, StringComparison.OrdinalIgnoreCase))
+            {
+                combo.SelectedItem = item;
+                return;
+            }
+        combo.Text = face;
     }
 
     /// Reads the exe once and sets every box from it.
@@ -469,12 +692,69 @@ internal sealed class PatchesWindow : Window
                 if (on == null)
                     box.ToolTip = p.Tip + "\n\n(not in this build of soa.exe, or the game was not found)";
             }
+            foreach (ComboBox combo in _fonts)
+            {
+                var f = (FontSlot)combo.Tag;
+                string face = data == null ? null : Patches.FontOf(data, f);
+                combo.IsEnabled = face != null;
+                ShowFont(combo, face ?? f.Shipped);
+                if (face == null)
+                    combo.ToolTip = f.Tip + "\n\n(not in this build of soa.exe, or the game was not found)";
+            }
             _status.Text = data == null
                 ? "soa.exe was not found."
                 : _exe;
             _status.Foreground = data == null ? Bad : Dim;
         }
         finally { _loading = false; }
+    }
+
+    private void OnFontPicked(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+        var combo = (ComboBox)sender;
+        if (combo.SelectedItem == null) return;
+        WriteFont(combo, ComboText(combo));
+    }
+
+    private void OnFontTyped(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        var combo = (ComboBox)sender;
+        string typed = combo.Text.Trim();
+        if (typed.Length == 0) return;
+        WriteFont(combo, typed);
+    }
+
+    private void WriteFont(ComboBox combo, string face)
+    {
+        var f = (FontSlot)combo.Tag;
+        byte[] data = null;
+        try { if (File.Exists(_exe)) data = File.ReadAllBytes(_exe); }
+        catch (Exception) { }
+        string now = data == null ? null : Patches.FontOf(data, f);
+        if (now == null || string.Equals(now, face, StringComparison.Ordinal)) return;
+
+        string failed = GameLink.FindGame() != null
+            ? "The game is running - close it first, the file cannot be written while it runs."
+            : Patches.SetFont(_exe, f, face);
+        _loading = true;
+        try
+        {
+            if (failed != null)
+            {
+                _status.Text = failed.StartsWith("The game") ? failed : "Not written: " + failed;
+                _status.Foreground = Bad;
+                ShowFont(combo, now);
+                return;
+            }
+            ShowFont(combo, face);
+        }
+        finally { _loading = false; }
+        _status.Text = f.Name + ": " + face
+                     + (string.Equals(face, f.Shipped, StringComparison.OrdinalIgnoreCase) ? " (as shipped)" : "")
+                     + " - written to soa.exe.";
+        _status.Foreground = Accent;
     }
 
     private void OnToggle(object sender, RoutedEventArgs e)

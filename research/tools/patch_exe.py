@@ -207,6 +207,9 @@ Usage:
     python patch_exe.py --no-airstrike-menu  back to the designer's markers only
     python patch_exe.py --m34             the M34 white phosphorus grenade, item 150 (needs mod_m34.py's files)
     python patch_exe.py --no-m34          back to five thrown weapons
+    python patch_exe.py --font NAME       the Windows font the screens are drawn with (Tahoma as shipped)
+    python patch_exe.py --bitmap-font NAME  the one the game bakes into a texture (Arial as shipped)
+    python patch_exe.py --default-fonts   both back to the names the exe shipped with
     python patch_exe.py --exe <path>      a different copy of the game
 """
 import argparse
@@ -337,6 +340,68 @@ DEFAULT_CHARSET = 0x01
 EASTEUROPE_CHARSET = 0xEE
 
 
+# The game takes its fonts from Windows. Two names are in the exe: "Tahoma",
+# which Y2KApp.cpp asks CreateFontA for nine times in nine sizes - every
+# screen, panel, tooltip and briefing - and "Arial", which bmfont.cpp asks for
+# once at 16 pixels as the default font of the routine that bakes a Windows
+# font into a texture (the nine Tahomas go through the same routine, 0x631670,
+# right after each CreateFontA). Each is a plain string in .data
+# and the calls only push its address. Another name means another string:
+# the shipped one has seven bytes of room, so a name goes into the zero
+# padding at the end of .text instead and the pushes are pointed at it. The
+# default is the file as it came - the pushes back on the shipped string,
+# the padding zero again - not the shipped name written into the padding.
+# The name must be a face Windows has; one it has not is mapped to whatever
+# GDI thinks closest, so the game still starts.
+FONT_SLOTS = {
+    'screens': {'face': 'Tahoma', 'cave': 0x3B4E00,
+                'pushes': [0x2DA4E3, 0x2DA553, 0x2DA5B9, 0x2DA625, 0x2DA68D,
+                           0x2DA6F9, 0x2DA763, 0x2DA7CD, 0x2DA833],
+                'shipped': h('60808600')},
+    'bitmap': {'face': 'Arial', 'cave': 0x3B4E20,
+               'pushes': [0x2311B7],
+               'shipped': h('AC118600')},
+}
+FACE_MAX = 31           # LF_FACESIZE less the terminator
+FACE_ROOM = 32
+IMAGE_BASE = 0x400000
+
+
+def cave_pointer(slot):
+    return (slot['cave'] + IMAGE_BASE).to_bytes(4, 'little')
+
+
+def font_of(data, slot):
+    """The face the slot asks for: the shipped name, the one in the cave,
+    or None when the pushes are neither - not this build, or damaged."""
+    at = [bytes(data[p:p + 4]) for p in slot['pushes']]
+    if all(a == slot['shipped'] for a in at):
+        return slot['face']
+    if all(a == cave_pointer(slot) for a in at):
+        raw = bytes(data[slot['cave']:slot['cave'] + FACE_ROOM])
+        return raw.split(b'\0', 1)[0].decode('ascii', 'replace')
+    return None
+
+
+def set_font(data, slot, face):
+    """Points the slot at `face`; the shipped name puts the file back as it
+    came. Returns whether anything changed."""
+    if font_of(data, slot) is None:
+        raise SystemExit('the font pushes are not where this build has them - a different exe?')
+    face = face.strip()
+    if not face or len(face) > FACE_MAX or not all(32 <= ord(c) < 127 for c in face):
+        raise SystemExit('a font name is 1 to %d plain characters, not %r' % (FACE_MAX, face))
+    if face.lower() == slot['face'].lower():
+        pointer, cave = slot['shipped'], bytes(FACE_ROOM)
+    else:
+        pointer, cave = cave_pointer(slot), face.encode('ascii').ljust(FACE_ROOM, b'\0')
+    before = bytes(data)
+    for p in slot['pushes']:
+        data[p:p + 4] = pointer
+    data[slot['cave']:slot['cave'] + FACE_ROOM] = cave
+    return bytes(data) != before
+
+
 def charset_sites(data):
     """Offsets of the charset byte of every CreateFontA call."""
     out = []
@@ -421,6 +486,12 @@ def main():
                          'Czech or Polish translation keeps its diacritics')
     ap.add_argument('--default-charset', action='store_true',
                     help='back to whatever the machine is set to')
+    ap.add_argument('--font', metavar='NAME',
+                    help='the Windows font every screen is drawn with (Tahoma as shipped)')
+    ap.add_argument('--bitmap-font', metavar='NAME',
+                    help='the font the game bakes into a texture at start (Arial as shipped)')
+    ap.add_argument('--default-fonts', action='store_true',
+                    help='both fonts back to the names the exe shipped with')
     args = ap.parse_args()
 
     if not os.path.exists(args.exe):
@@ -444,6 +515,14 @@ def main():
     for group, name, pos, original, patched in found:
         state = 'patched' if data[pos:pos + len(patched)] == patched else 'original'
         print('  0x%06X  %-8s %-44s %s' % (pos, group, name, state))
+    for key, slot in FONT_SLOTS.items():
+        face = font_of(data, slot)
+        print('  %d site%s   %-8s %-44s %s'
+              % (len(slot['pushes']), 's' if len(slot['pushes']) > 1 else ' ', key,
+                 'the font the screens are drawn with' if key == 'screens'
+                 else "the text system's own font, made at start",
+                 'unknown - a different build?' if face is None else
+                 face + ('' if face != slot['face'] else ' (as shipped)')))
 
     wanted = {}
     if args.windowed:
@@ -491,7 +570,14 @@ def main():
         charset = EASTEUROPE_CHARSET
     if args.default_charset:
         charset = DEFAULT_CHARSET
-    if not wanted and charset is None:
+    fonts = {}
+    if args.default_fonts:
+        fonts = {key: slot['face'] for key, slot in FONT_SLOTS.items()}
+    if args.font:
+        fonts['screens'] = args.font
+    if args.bitmap_font:
+        fonts['bitmap'] = args.bitmap_font
+    if not wanted and charset is None and not fonts:
         return
 
     backup = args.exe + '.orig'
@@ -506,6 +592,13 @@ def main():
                 n, CHARSET_SITES,
                 'east europe' if charset == EASTEUROPE_CHARSET else 'the machine default'))
             changed += n
+    for key, face in fonts.items():
+        if not os.path.exists(backup):
+            shutil.copyfile(args.exe, backup)
+            print('  backup: %s' % backup)
+        if set_font(data, FONT_SLOTS[key], face):
+            print('  %s font: %s' % (key, face))
+            changed += 1
     for group, name, pos, original, patched in found:
         if group not in wanted:
             continue

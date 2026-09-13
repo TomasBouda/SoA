@@ -679,7 +679,9 @@ What is different from the original
   the air strike in the ring menu of every mission, a camera that goes higher
   and closer, Shift for a fast camera, pause with orders, and the M34 white
   phosphorus grenade - a sixth thrown weapon the game never had, a pack of
-  three the trader sells, a circle of fire where it lands
+  three the trader sells, a circle of fire where it lands; and the font the
+  game draws with, any one Windows has - the game asks for Tahoma by name and
+  the name is all that is changed
 
 Saved games
 -----------

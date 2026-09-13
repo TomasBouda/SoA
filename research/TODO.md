@@ -270,6 +270,25 @@ the console window can now `quicksave` and `quickload`
       the signature the objects answer to, so the whole mission shows at once
       whatever the party can see. The cell array stays for the terrain, the
       structures and the ground.
+- [ ] **Reveal ground at chosen coordinates (a recon flight).** The point is
+      to call the air strike and see what is at the target. Tried and
+      rejected in one session, written up in
+      [architecture.md](architecture.md): the vision circles at `+0xC4` read
+      like the lever and draw a ring, but reveal nothing, and writing into
+      that list corrupts the object (the game crashes later inside `free`
+      from the destructor). `EVisibleTo` was never caught running, so the
+      per-frame fog is decided elsewhere; the binoculars are passive. The
+      Since then, measured properly (camera in free mode over the place,
+      counting the orange enemy markers in a screenshot): a soldier
+      **walking** there reveals it, 55 marker pixels against none. Writing
+      his coordinates does not, nor does raising the perception stat, which
+      the game restores by itself. So the observer has to be really there.
+      Two leads left: how the engine itself puts a unit at a place, and the
+      per-player grid at `+0x60` of the manager's objects - one cell per 64
+      units, three floats, seen when the first two sum above zero
+      (`0x6AF530` reads it), the only thing addressed by coordinates that
+      has not been written to.
+
 - [ ] **The sight range is computed, not stored - so it needs a code patch.**
       Seeing everything in the launcher works; seeing it in the game means
       reaching how far a unit sees, and that turned out not to be a field at
@@ -463,6 +482,22 @@ the console window can now `quicksave` and `quickload`
       own than take it on trust.
 
 ## Content and looks
+
+- [x] ~~**Can the font be changed?**~~ Yes, and it is cheap: the game asks
+      Windows for "Tahoma" by name in nine sizes and bakes each into a
+      texture, so another name is another font everywhere, laid out right
+      because the game measures what it was given. Two drop-downs in the
+      launcher's Patches window, `patch_exe.py --font`. See
+      [architecture.md](architecture.md), "The fonts come from Windows".
+      Still open:
+      - [ ] a font shipped with the package - a TTF the launcher registers
+            for the game's process with `AddFontResourceEx(FR_PRIVATE)`,
+            so a look does not depend on what the machine has;
+      - [ ] the loading screen's briefing has a fixed line spacing and a
+            taller face overlaps its lines there - the nine sizes could
+            be scaled with the face, or that one drawn smaller;
+      - [ ] where the Arial default of `bmfont.cpp` reaches the screen, if
+            anywhere.
 
 - [x] ~~**Can a weapon be added?**~~ Yes: the M34 white phosphorus grenade,
       item 150, is in the package - a pack of three, thrown like the hand

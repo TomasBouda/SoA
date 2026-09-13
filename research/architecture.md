@@ -427,6 +427,49 @@ directory - the `Game` folder when the launcher starts it - counting up from
 `shot0000.png`, so nothing is ever overwritten. It is the only way to take a
 picture of the game without leaving it, which full screen does not forgive.
 
+## The fonts come from Windows, by name
+
+The game draws no font of its own. Two names are in the exe, and every letter
+on screen goes back to one of them:
+
+* **"Tahoma"** at `0x868060`, which `Y2KApp.cpp` (0x6DA370) asks `CreateFontA`
+  for **nine times in nine sizes** - weight 400, quality 2, `FF_MODERN` - one
+  after another at startup. That is the whole interface: the menus, the
+  trader, the equipment screen, the panels, the tooltips, the briefings.
+* **"Arial"** at `0x8611AC`, which `bmfont.cpp` (0x6310B0) asks for once, at
+  16 pixels, as the default font of the routine that turns a Windows font
+  into a texture of glyphs. The nine Tahomas go through that same routine -
+  `0x631670`, called right after each `CreateFontA` - so the game never
+  draws through GDI at all: it measures with `GetCharacterPlacementA` and
+  `GetTextExtentPoint32A`, bakes once, and draws quads. Where the Arial
+  default itself reaches the screen was not found; it is set for
+  completeness.
+
+Because the layout is measured from the font the game was given, another
+font simply works: with "Stencil" written over "Tahoma" the Options screen
+laid its columns out right, the unit panel fitted its name, the tooltips
+their word. One thing to look at with a chosen font: the briefing on the
+loading screen has a fixed line spacing, and a taller face overlaps its
+lines there.
+
+Each name is a plain string in `.data` and the calls only push its address,
+so the patch is the pointer, not the string: the shipped string has seven
+bytes of room, and a face name may have 31 (`LF_FACESIZE`), so a new name is
+written into the zero padding at the end of `.text` - `0x7B4E00` for the
+screens, `0x7B4E20` for the other - and the nine (or one) `push` operands are
+pointed at it. The shipped name puts the pushes back and the padding to zero,
+so the default is the file as it came, byte for byte, and `check.py`'s round
+trip covers it. `patch_exe.py --font NAME`, `--bitmap-font NAME`,
+`--default-fonts`; the launcher's Patches window has the two as drop-downs of
+the fonts the machine has, each name drawn in its own face, and a name can
+be typed. A name Windows does not have is answered by the font mapper with
+whatever it thinks closest, so a wrong name costs nothing but the look.
+
+The font has to be on the machine. A package that wants a font of its own
+would carry the TTF and have the launcher register it for the game's process
+(`AddFontResourceEx` with `FR_PRIVATE`, before `soa.exe` starts - or in the
+game, since the fonts are made at startup); that is not built.
+
 ## The command console: it exists, and it cannot be opened
 
 The exe builds a whole tree of typed commands at startup, rooted in a node
@@ -720,7 +763,9 @@ focus, the log, the camera, Shift, the character set - has a box of its own
 behind the *Patches* button, with what it does written next to it. The
 launcher carries the same signatures as `patch_exe.py`
 ([tools/launcher/Patches.cs](tools/launcher/Patches.cs)) and writes the exe
-the moment a box is ticked, refusing while the game runs.
+the moment a box is ticked, refusing while the game runs. Below the boxes
+sit the two fonts (see "The fonts come from Windows, by name"), the one
+setting there that is a name rather than a switch.
 
 ### Pause and give orders: the "turn-based patch" that never shipped
 
@@ -1404,6 +1449,74 @@ it: the launcher patches the player's own exe, and the data files are the
 package's - so there the box stays off.
 
 ---
+
+### Sight, and a recon circle
+
+How far a unit sees is not a stored field but a computed one, which is why an
+earlier search for it found nothing. `EVisibleTo` (`0x5C1C30`) decides each
+observer-target pair, and the range comes from a virtual on the observer
+(`vt+0x94`): for a soldier `25 * (1 + 0.1 * stat)` world units, `stat` an
+integer in his RPG character (`+0x24`), times `(1 - 0.1 * mask)` for the
+target's own concealment (`+0x20`); a vehicle takes the best of its crew.
+So stat 20 is 75 units, which matches the measured 70-80, and the binoculars
+multiply by 1.4 (`0x7d6678`) to about 105. Data.set does not carry it - it
+belongs to the character - so it can be raised per unit in a save.
+
+Every object also carries a list at `+0xC4` (`+0xC8` its head, `+0xCC` a
+count). `EVisibleTo` walks it for the *observer* and returns "visible" at
+once when the target is inside one of its circles, and the payload is
+**integers**: `node+8` x, `node+0xC` y, `node+0x10` radius, `node+0x18` a
+flag that skips the entry when non-zero. So it reads like the lever for
+revealing ground, and a hand-built node does draw a green ring on the
+minimap - but a session of trying it did **not** reveal anything, and it is
+recorded here mostly as a warning:
+
+* a circle put at a cluster 950 units away changed nothing at all - neither
+  the player object, nor the enemies, nor the picture;
+* `EVisibleTo` itself was never once caught running by
+  [tools/probe.py](tools/probe.py) over several seconds of play, so whatever
+  decides the fog frame by frame is somewhere else and this is a query used
+  on events;
+* writing into the `+0xC4` list corrupts the object: the game crashed later
+  inside `free` called from the destructor at `0x57A695`. The head at
+  `+0xC8` is not a spare node to link behind - the destructor frees that
+  pointer, so the first eight bytes belong to a real allocation.
+
+Two other things were ruled out on the way. The binoculars are **passive** -
+they are the `1.4` in the range above, not a script that reveals; asking a
+soldier to use them (`UseEquipment`, vtable `0x38C`, whose executor wants
+the target to be the soldier himself or it dereferences a null) does
+nothing. And the enemy-object vectors at `+0x158` and `+0x270` that move
+when a soldier walks up are the *enemy's* own sight lists - who it sees -
+not a record of being seen, so they are no good as a signal either.
+
+What **does** work, and it is the only thing that does: a unit of the
+player actually being there. Ordered to walk to a cluster 154 units away,
+a soldier arrived and the enemies appeared - 55 pixels of the orange
+markers the game draws over them, against none before, counted from a
+screenshot. That is also the measuring method the earlier attempts
+lacked: park the camera over the place (the camera has to be in **free**
+mode, or position writes are ignored while it follows a unit) and count
+the markers.
+
+Measured the same way, these do **not** reveal anything:
+
+* moving a unit by writing its coordinates at `+0x54`/`+0x58` - the
+  position changes and the game draws it there, but nothing is revealed,
+  so the unit is registered somewhere else as well and the visibility
+  never learns it moved;
+* the vision circles above;
+* raising what looked like the perception stat (`[unit+0x320]+0x24`,
+  the `(1 + 0.1 * stat)` in the range formula) - and the game puts the
+  value back on its own within seconds, so it is computed, not stored.
+
+So a recon flight needs the observer to be **really** at the target, the
+way the engine puts units places - found, or created there - not poked
+into position. That is where the next attempt starts, along with the
+per-player grid at `+0x60` of the manager's objects (coarse, one cell per
+64 units, three floats each, "seen" when the first two add up above zero -
+`0x6AF530` is the lookup), which is the one structure that is addressed by
+coordinates and has not been written to yet.
 
 ## Vehicles and their crews: when a vehicle is left standing empty
 

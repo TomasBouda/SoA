@@ -275,9 +275,12 @@ class Game:
     # waits.
 
     def key(self, vk):
-        user32.keybd_event(vk, 0, 0, 0)
+        """A key press posted to the game's window, so the keyboard itself is
+        left alone (the game reads its keys from the messages)."""
+        scan = user32.MapVirtualKeyW(vk, 0)
+        user32.PostMessageW(self.hwnd, 0x100, vk, (scan << 16) | 1)
         time.sleep(0.05)
-        user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+        user32.PostMessageW(self.hwnd, 0x101, vk, (scan << 16) | 0xC0000001)
         time.sleep(0.1)
 
     def wait_arrival(self, unit, timeout=30):
@@ -357,20 +360,60 @@ class Game:
         return False
 
     def screenshot(self, path=None):
-        """A picture of the game window, taken from outside with GDI (the
-        window is on screen, so PIL's ImageGrab of its client rectangle is
-        enough). The game's own screenshot call, 0x6031B0 on a thread of our
-        own, took the game down twice with a DirectDraw 0x887602F8 whenever a
-        menu or a dialog was up, so it is not used any more."""
-        from PIL import ImageGrab
-        p = wintypes.POINT(0, 0)
-        user32.ClientToScreen(self.hwnd, ctypes.byref(p))
+        """A picture of the game window. The game takes it itself: F12 is
+        bound in the shipped settings and writes shot0000.png and up beside
+        soa.exe, so a posted F12 gets the frame whatever the window's state
+        - behind others, or on another virtual desktop, where a screen grab
+        of its rectangle showed the wallpaper and PrintWindow the last frame
+        the compositor had. When no file appears (a state the key is not
+        read in) PrintWindow is the fallback. The game's own screenshot call
+        driven from a thread of ours, 0x6031B0, took the game down twice
+        with a DirectDraw 0x887602F8 whenever a menu or a dialog was up, so
+        that route is not used."""
+        import glob
+        import shutil
+        path = path or os.path.join(os.environ.get('CLAUDE_SCRATCH', os.environ.get('TEMP', '.')), 'soa_shot.png')
+        folder = self.game_folder()
+        pattern = os.path.join(folder, 'shot*.png') if folder else None
+        before = set(glob.glob(pattern)) if pattern else set()
+        if pattern:
+            VK_F12 = 0x7B
+            scan = user32.MapVirtualKeyW(VK_F12, 0)
+            user32.PostMessageW(self.hwnd, 0x100, VK_F12, (scan << 16) | 1)
+            time.sleep(0.05)
+            user32.PostMessageW(self.hwnd, 0x101, VK_F12, (scan << 16) | 0xC0000001)
+            for _ in range(30):
+                time.sleep(0.1)
+                new = set(glob.glob(pattern)) - before
+                if new:
+                    shot = new.pop()
+                    time.sleep(0.2)                     # let the game finish writing
+                    shutil.move(shot, path)
+                    return path
+        self.print_window(path)
+        return path
+
+    def print_window(self, path):
+        """The window's surface from the compositor, PrintWindow with
+        PW_RENDERFULLCONTENT; the last frame it has, which is stale when the
+        window is not being composed."""
+        from PIL import Image
+        gdi32 = ctypes.windll.gdi32
         r = wintypes.RECT()
         user32.GetClientRect(self.hwnd, ctypes.byref(r))
-        im = ImageGrab.grab(bbox=(p.x, p.y, p.x + r.right, p.y + r.bottom), all_screens=True)
-        path = path or os.path.join(os.environ.get('CLAUDE_SCRATCH', os.environ.get('TEMP', '.')), 'soa_shot.png')
-        im.save(path)
-        return path
+        w, h = r.right, r.bottom
+        hdc = user32.GetDC(0)
+        mdc = gdi32.CreateCompatibleDC(hdc)
+        bmp = gdi32.CreateCompatibleBitmap(hdc, w, h)
+        gdi32.SelectObject(mdc, bmp)
+        user32.PrintWindow(self.hwnd, mdc, 3)          # PW_CLIENTONLY | PW_RENDERFULLCONTENT
+        info = struct.pack('<IiiHHIIiiII', 40, w, -h, 1, 32, 0, 0, 0, 0, 0, 0)
+        buf = ctypes.create_string_buffer(w * h * 4)
+        gdi32.GetDIBits(mdc, bmp, 0, h, buf, info, 0)
+        gdi32.DeleteObject(bmp)
+        gdi32.DeleteDC(mdc)
+        user32.ReleaseDC(0, hdc)
+        Image.frombuffer('RGBA', (w, h), buf.raw, 'raw', 'BGRA', 0, 1).convert('RGB').save(path)
 
 
 class Projection:

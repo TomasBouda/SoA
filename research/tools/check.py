@@ -156,6 +156,16 @@ def check_patches(exe, failures):
     if not stale:
         say('the launcher and patch_exe.py hold the same bytes', 'OK')
 
+    # The fonts are a value, not a toggle, so the launcher has their places
+    # rather than their bytes: every push and cave offset patch_exe.py knows.
+    missing = [key for key, slot in patch_exe.FONT_SLOTS.items()
+               if any('0x%X' % at not in cs for at in slot['pushes'] + [slot['cave']])]
+    for key in missing:
+        say('Patches.cs does not hold the offsets of the %s font - the launcher is out of step' % key, 'FAIL')
+    failures.extend(missing)
+    if not missing:
+        say('the launcher and patch_exe.py agree on where the fonts are', 'OK')
+
     # The round trip: on a copy, so the real exe is never touched. Which way
     # round each group starts is read off the file first, so that the copy ends
     # the way it began whatever state it was in.
@@ -172,13 +182,18 @@ def check_patches(exe, failures):
         if pos is not None:
             was[group] = bytes(data[pos:pos + len(patched)]) == patched
 
-    def run(switch):
+    def run(*switch):
         subprocess.check_output([sys.executable, os.path.join(HERE, 'patch_exe.py'),
-                                 '--exe', work, switch])
+                                 '--exe', work] + list(switch))
 
     for group, (there, back) in groups.items():
         run(there); run(back); run(there); run(back)
         run(there if was.get(group) else back)
+    fonts = {key: patch_exe.font_of(data, slot) for key, slot in patch_exe.FONT_SLOTS.items()}
+    if None not in fonts.values():
+        run('--font', 'Check font', '--bitmap-font', 'Check font')
+        run('--default-fonts')
+        run('--font', fonts['screens'], '--bitmap-font', fonts['bitmap'])
     after = hashlib.sha256(open(work, 'rb').read()).hexdigest()
     orig = work + '.orig'
     if os.path.exists(orig):

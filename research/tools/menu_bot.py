@@ -9,6 +9,12 @@ screen to change (play_bot.Game.screenshot, a GDI grab from outside) instead
 of sleeping a fixed time, which is what made the earlier version miss a step
 on a slow load.
 
+The clicks and keys are posted to the game's window as messages
+(WM_MOUSEMOVE, WM_LBUTTONDOWN/UP, WM_KEYDOWN/UP): the game reads its input
+from them, so nothing has to touch the real mouse or the keyboard, and a
+person can keep working beside a test. The first version moved the cursor
+and took the mouse away from whoever was at the machine.
+
 Usage:
     python menu_bot.py --load 0        main menu -> profile -> Load Saved Game -> row 0 -> team -> mission
     python menu_bot.py --reload 0      inside a mission: Esc -> Load -> row 0 -> the mission again
@@ -41,23 +47,33 @@ class Menus:
         r = wintypes.RECT()
         user32.GetClientRect(self.g.hwnd, ctypes.byref(r))
         self.scale = (r.right / 784.0, r.bottom / 561.0)
-        user32.SetForegroundWindow(self.g.hwnd)
-        time.sleep(0.5)
+
+    WM_MOUSEMOVE, WM_LBUTTONDOWN, WM_LBUTTONUP = 0x200, 0x201, 0x202
+    WM_KEYDOWN, WM_KEYUP = 0x100, 0x101
+
+    def lparam(self, x, y):
+        cx, cy = int(x * self.scale[0]), int(y * self.scale[1])
+        return (cy << 16) | (cx & 0xFFFF)
 
     def click(self, x, y):
-        p = wintypes.POINT(0, 0)
-        user32.ClientToScreen(self.g.hwnd, ctypes.byref(p))
-        user32.SetCursorPos(int(p.x + x * self.scale[0]), int(p.y + y * self.scale[1]))
-        time.sleep(0.15)
-        user32.mouse_event(2, 0, 0, 0, 0)
+        lp = self.lparam(x, y)
+        user32.PostMessageW(self.g.hwnd, self.WM_MOUSEMOVE, 0, lp)
+        time.sleep(0.1)
+        user32.PostMessageW(self.g.hwnd, self.WM_LBUTTONDOWN, 1, lp)
         time.sleep(0.06)
-        user32.mouse_event(4, 0, 0, 0, 0)
+        user32.PostMessageW(self.g.hwnd, self.WM_LBUTTONUP, 0, lp)
         time.sleep(0.15)
 
+    def double_click(self, x, y):
+        self.click(x, y)
+        time.sleep(0.05)
+        self.click(x, y)
+
     def key(self, vk):
-        user32.keybd_event(vk, 0, 0, 0)
+        scan = user32.MapVirtualKeyW(vk, 0)
+        user32.PostMessageW(self.g.hwnd, self.WM_KEYDOWN, vk, (scan << 16) | 1)
         time.sleep(0.08)
-        user32.keybd_event(vk, 0, 2, 0)
+        user32.PostMessageW(self.g.hwnd, self.WM_KEYUP, vk, (scan << 16) | 0xC0000001)
 
     def screen(self):
         return Image.open(self.g.screenshot()).convert('L').resize((196, 140))
