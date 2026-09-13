@@ -120,6 +120,24 @@ constructor and may be overwritten.
 
 ## Translating the game
 
+- [ ] **A radio play out of the dialogue, on the website.** Every spoken
+      line of the campaign is in the mission texts with the mp3 that reads
+      it and the name of who reads it (`translate.py --speech` lists them),
+      and the missions name their successors, so the whole campaign can be
+      strung together in order - 1, 2, 3, 4, then 5a or 5b, 6a or 6b, 7,
+      then 8a/9a or 8b/9b - and played as one continuous story: the
+      dialogue groups of a mission in the order the mission fires them,
+      one mp3 after another, with the text alongside. A page in the public
+      site (GitHub Pages) with a player, and at the two branch points of
+      the campaign (mission 4: which gang; mission 7: NOAH or the monks) a
+      choice the listener makes, so both endings can be heard. What is
+      not in the data is the order the groups fire within a mission -
+      that is in the scripts, which the mission reader does not decode
+      yet (see "The mission format" above); until then the order of the
+      keys in the `.trs` is the best guess, and it is roughly right.
+      The audio is 93 MB of mp3 in `missions.ubn`; the site would carry
+      the lines it needs, or stream them from a release asset.
+
 - [x] ~~**Can it be translated at all?**~~ Yes, and with no change to the exe.
       The text is UTF-8 - the game's own German lines say so, and the exe
       converts with code page 65001 - so writing UTF-8 is the whole trick. The
