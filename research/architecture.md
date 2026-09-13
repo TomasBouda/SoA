@@ -1601,6 +1601,130 @@ a decompilation - but the map is what was missing.
 
 ---
 
+## Easter eggs, and what the developers left behind
+
+Looked for on purpose: every string in the exe, every text in `data.ubn` and
+`missions.ubn`, every file name in the eight archives, and the code behind
+anything that looked odd. What is here was checked, not guessed.
+
+### The speech test says "Hasta la vista, baby"
+
+The Sound box of the Options screen has three icons - music, effects,
+speech - and clicking one plays a sample for its slider. The effects icon
+plays a 2S3 shell landing (`2s3_GeschossEinschlag.wav`). The speech icon
+plays `Sounds\InGame\Misc\SpeechTest.mp3` (`StartOptionsSettingsPanel.cpp`,
+0x5061E1): a second and a half of somebody saying *"Hasta la vista, baby."*
+Nothing else in the game references the file. Verified with a hook on the
+sound loader (0x656230) while the icon was clicked, and the line by ear -
+well, by Whisper.
+
+### The developers are in the game - as recruits, and as the enemy
+
+`TRES_NAMEPOOL.trs`, the 49 names a new male soldier can get (the hospital
+panel, `BunkerLazarettPanel.cpp`, draws from the pool by character type),
+carries the team among the Russians: **Ronny Knauth** (lead programmer),
+**Sebastian Tusk** (lead 3D programmer, whose disk `D:\Sebastian` is in
+every source path), **Daniel Töpfer** (lead artist), **Olaf Sacher**, **Jan
+Jordan**, **Nils Meißner**, **Martin Lütke**, **Enrico Falk** - eight of
+49, so a recruit is a developer about one time in six. The credits
+(`TRES_CREDITS.trs`) name all of them.
+
+The level designers used the same pool, so the developers stand in the
+missions too - as the enemy. Read from the running game (a unit's name in
+memory, the player it belongs to, that player's diplomacy towards the
+squad): in mission 3 Ronny Knauth is in the *Nightclaw Boss* party, enemy;
+in mission 6b he is there four times among the 108 enemy units, with Jan
+Jordan and two Olaf Sachers beside him, and once more as a neutral. Across
+the campaign files the lead programmer appears 23 times, Olaf Sacher 10,
+Sebastian Tusk in missions 1, 6a, 6b and 9b, Enrico Falk in 5b.
+
+### Seven developer cheats, each one a test set-up
+
+The base cheat table (see [cheats.md](cheats.md)) has `ronny`, `enrico`,
+`martin`, `alex`, `jan`, `nils` and `sebastian` beside `vehicle` and
+`equipment`. What they do was open; the code answers it. Each takes a
+number in brackets and then calls the dispatcher itself, cheat after cheat,
+with literal arguments - a macro of the ordinary cheats:
+
+* **`enrico(N)`** sets the base up for mission N and selects it: a switch
+  on N with cases 2, 3, 4, 5, 6, 8, 51, 52, 61 and 62 (0x530AA7), each a
+  list of `vehicle(..)`, `equipment(..)`, `soldierspawn` and finally
+  `mission(N)`. `enrico(2)` is a Humvee with its M60 mount, two MP5s, two
+  Uzis, a shotgun, two light vests, the ammunition, two medikits, three
+  recruits and `mission(2)`; `enrico(4)` a Humvee, a BTR-80, a BMP-1 and a
+  Ural, two M60s, four MP5s, four vests, four Molotovs, four medikits and
+  six recruits.
+* **`martin(N)`**: a Humvee and a BTR-80, an M60 mount, two MP5s, a
+  shotgun, three recruits, `mission(5)`.
+* **`sebastian(N)`**: four recruits, the MiG-27, the MiG-29 and the
+  MD-500, two 250 kg and two 500 kg bombs, three trackers, the
+  helicopter's gun, a Beretta - the 3D programmer's set for the aircraft.
+* **`ronny(2)`** runs `enrico`'s cases 2 to 8 in turn and then one of
+  every piece of equipment from 1 to 51 and beyond - the everything set;
+  `ronny(3)` is the F-15 Eagle with two 250 kg bombs; `ronny(1)` only
+  reports success.
+* **`alex`, `jan`, `nils`** read their number and return - forty bytes
+  each, whatever they did is gone. `ronny(2)` still calls `nils` four
+  times, for nothing.
+
+So typing a colleague's name at the base was how a developer got a loaded
+base without playing the missions before it. The names are theirs: Ronny
+Knauth, Enrico Falk, Martin Lütke, Alexander Miseler, Jan Jordan, Nils
+Meissner, Sebastian Tusk.
+
+**`sfxdebug`**, the odd one in the mission cheat table, calls 0x41C780 -
+which is a single `ret`. Its debug code was compiled out and the cheat
+stayed.
+
+### Dune
+
+The women's name pool (`TRES_NAMEPOOLW.trs`) has **Odrade**, **Taraza**,
+**Schwangyu** and **Lucilla** among the Natalias and Oksanas - four
+Reverend Mothers of the Bene Gesserit from *Heretics of Dune*. And the
+*Thumper Decoy* (`SET_MINENKOEDER`), which lures the vibration-sensing
+crawler mines so they blow up on it, is the thumper that calls the
+sandworm.
+
+### Three names for one game
+
+The source paths say **unborn** (`builds\unborn\y2k_source`); the demo's
+title screen (`TRES_DEMO_7`) and the ID3 tags of all 29 soundtrack tracks
+(*Natural Resistance - Track N*, album *Natural Resistance*, artist Silver
+Style Entertainment) say **Natural Resistance**; the box says Soldiers of
+Anarchy. `Demo.mis`, `Demoende.bik`, `introsong_demo.mp3`, `StartDemo.gui`
+and `TRES_START_Demo.trs` are the demo, still in the archives.
+
+### A map of America
+
+`Buildings.olb` has a folder *District of USA*: three Chevrolet Camaros
+(blue, mellow, burned), two Dodge Ram vans, a truck, American traffic
+signs (*Stop*, *Do Not Enter*, *One Way*, *Speed Limit 15* and *35*,
+*Heavy Truck Traffic*, *Road Works*), office blocks, a gas station, a
+computer store, a nuclear power plant with its cooling tower, and a
+*Monument Valley Rock*; `Vegetation.olb` adds two cacti. `Mission_usa.mis`
+(and an older `Missions_usa.mis`) in `missions.ubn` is a 40x40 map with
+805 of them placed on red desert dunes and no parties at all. Copied
+beside the game it shows up in *Play User Mission* and loads - dunes to
+the horizon, nobody there. Nothing of it is in the campaign; whether it
+was a level for a sequel or a demo for the American publisher is not in
+the files.
+
+### Test files that shipped
+
+`hard_test.mis`, `hard_test2.mis`, `hard_test3.mis` (empty terrain, 20x20,
+40x5 and 20x1), `8_spieler_test.mis` and `8_spieler_test2.mis` (eight
+parties, nothing placed), `testmusic.mp3` (six seconds), a mesh saved as
+`halle_e_s1.diff3D.old` next to its replacement, the editor's *Dummy*
+object, and `comegetsome.mis` - the multiplayer map named after Duke
+Nukem.
+
+### Not the developers'
+
+The no-CD build of `soa.exe` (the one the package is built from) carries
+*Hellspawn Reborn* and *I-Love-Sadi* in the padding of its PE header at
+file offset 0x3B0. The disc's own exe does not; they are the tags of
+whoever removed the copy protection, twenty years ago.
+
 ## Characters: ranks, skills and experience
 
 `TRES_CHARRANKS.trs` holds fourteen ranks, `TRES_CHAR_RANG_0` to `_13`: Rookie,

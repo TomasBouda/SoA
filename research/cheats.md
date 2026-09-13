@@ -186,10 +186,11 @@ of code, while `alex`, `jan` and `nils` have some forty each. Those three only
 read the number from the brackets and jump to the common end — they are
 leftovers from debugging and do nothing.
 
-**What exactly the others do is not verified.** At first I assumed they turn
-tracing on; later it turned out that the trace categories are command line
-arguments (see [architecture.md](architecture.md)). So these cheats do
-something else, or they toggle the same categories at run time.
+**What the others do is now read from the code**: each is a macro of the
+ordinary cheats - `vehicle(..)`, `equipment(..)`, `soldierspawn`,
+`mission(N)` - that sets the base up the way that developer tested it.
+`enrico(N)` is a switch on the mission number. See "Easter eggs" in
+[architecture.md](architecture.md) for what each one puts in the base.
 
 Sebastian is the one whose disk shows up in every path in the sources:
 `D:\Sebastian\oldPC\C\Dev\builds\unborn\y2k_source\`.
