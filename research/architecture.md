@@ -1619,8 +1619,9 @@ choice hangs on in 4 and 7 is in their scripts and not written here.
 ## Easter eggs, and what the developers left behind
 
 Looked for on purpose: every string in the exe, every text in `data.ubn` and
-`missions.ubn`, every file name in the eight archives, and the code behind
-anything that looked odd. What is here was checked, not guessed.
+`missions.ubn` - the dialogue lines included, which the first pass skipped
+and the user did not - every file name in the eight archives, and the code
+behind anything that looked odd. What is here was checked, not guessed.
 
 ### The speech test says "Hasta la vista, baby"
 
@@ -1699,6 +1700,28 @@ Reverend Mothers of the Bene Gesserit from *Heretics of Dune*. And the
 *Thumper Decoy* (`SET_MINENKOEDER`), which lures the vibration-sensing
 crawler mines so they blow up on it, is the thumper that calls the
 sandworm.
+
+### In the dialogue
+
+The lines the missions speak carry their own, found by reading every
+dialogue group that does not belong to a mission's story:
+
+* **"Ha, ho, he! Hertha BSC!"** - `SPORT_DIALOG_01` in mission 4, a man in
+  Bergstadt shouting the chant of Berlin's football club. Silver Style was
+  a Berlin studio.
+* The tutorial has three hidden endings of its own: shoot at your own men
+  and the instructor throws you out (`PLAYERATTACKSHIMSELF`: "You're a
+  madman ... I'm kicking you out of my training course!"); wander off and
+  he sighs "OK, missy! So you've decided to go your own way" and hands you
+  two tanks to destroy instead - "No rules. No help." (`WAR_DIAL`); and
+  drive the wrong way and he scolds you **in German** - `WRONG_WAY_DIALOG_1`
+  never got translated in the English build ("Kannst du nicht mal einem
+  Ping folgen? ... Missy?").
+* Mission 1 has an old man at a graveyard whose family "the ghosts of the
+  Old Times" took, mission 2 a lunatic who has seen "demons with fire
+  coming out of their hands", mission 4 a preacher in the woods who is
+  killed by one mid-sermon: the same thing, three times, before the story
+  says what it is.
 
 ### Three names for one game
 
