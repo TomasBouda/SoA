@@ -1601,6 +1601,21 @@ a decompilation - but the map is what was missing.
 
 ---
 
+## Where the campaign branches
+
+Each mission file names the missions it can hand over to (the
+`SetFollowMission` event; the names are plain in the file). Two missions
+name two:
+
+    1 - 2 - 3 - 4 -+- 5a - 6a -+
+                   +- 5b - 6b -+- 7 -+- 8a - 9a
+                                     +- 8b - 9b
+
+Mission 4 chooses between 5a and 5b, and the two paths meet again in 7;
+mission 7 chooses between 8a and 8b, and those do not meet - 9a and 9b are
+two endings. Every other mission names exactly one successor. What the
+choice hangs on in 4 and 7 is in their scripts and not written here.
+
 ## Easter eggs, and what the developers left behind
 
 Looked for on purpose: every string in the exe, every text in `data.ubn` and
