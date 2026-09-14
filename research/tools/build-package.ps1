@@ -99,7 +99,7 @@ function Say([string]$m, [string]$lvl = 'INFO') {
     Write-Host ('  {0,-5} {1}' -f $lvl, $m) -ForegroundColor $color
 }
 
-$skipFiles = @('soa.exe.securom', 'soa.exe.1.1.0.71', 'soa.exe.orig', 'tracefile.log',
+$skipFiles = @('soa.exe.securom', 'soa.exe.1.1.0.71', 'soa.exe.orig', 'tracefile.log', 'tracefile.prev.log',
     'replay.log.gz', 'running.lock', 'Restart.sav', 'Send System Config.lnk')
 $skipDirs = @('SaveGames', 'DirectX8')
 # Everything we added to the game sits in a loose folder that overrides an
@@ -691,7 +691,9 @@ They are created in the Game\SaveGames folder. To back them up, copy it.
 When something does not work
 ----------------------------
 * The game writes its own log into Game\tracefile.log - it usually says
-  outright what went wrong.
+  outright what went wrong. The game wipes it every time it starts, so the
+  launcher keeps the previous run's log as Game\tracefile.prev.log: after a
+  crash, that is where the reason is.
 * Graphics are tuned by dgVoodooCpl.exe in the Game folder. With antialiasing
   trouble (dark frames around trees) lower Antialiasing to 4x or off.
 * Fullscreen is switched in dgVoodooCpl.exe through FullScreenMode. The default
