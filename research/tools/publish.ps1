@@ -60,7 +60,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Source = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)   # ...\Games\SoA
+$Source = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)   # the repository
 $Manifest = Join-Path $PSScriptRoot 'publish-manifest.json'
 
 # The commits must carry this and nothing else. The e-mail is what GitHub pairs
