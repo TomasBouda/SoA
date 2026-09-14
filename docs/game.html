@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Soldiers of Anarchy, the game</title>
+<meta name="description" content="What Soldiers of Anarchy is: the premise, the six people in the bunker, the thirteen missions of the campaign and where it forks, and who is out there - the factions of the New Times.">
+<style>
+:root{
+  --bg:#191b20; --panel:#23262e; --sunk:#14161a; --line:#33384a;
+  --text:#e6e8ee; --dim:#8e93a3; --accent:#c8a24a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+a{color:var(--accent)}
+a:hover{color:#e0bd66}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px}
+
+header{border-bottom:1px solid var(--line);padding:76px 0 20px;
+  background:radial-gradient(1100px 420px at 50% -100px,rgba(200,162,74,.12),transparent)}
+.sub{color:var(--accent);font-size:14px;letter-spacing:.10em;text-transform:uppercase;margin:0 0 10px}
+h1{margin:0 0 14px;font-size:42px;line-height:1.12;letter-spacing:-.02em;font-weight:650}
+.lede{color:var(--dim);font-size:19px;max-width:680px;margin:0}
+
+.get{display:grid;gap:14px;grid-template-columns:1fr 1fr;margin:34px 0 8px}
+@media(max-width:720px){.get{grid-template-columns:1fr}h1{font-size:31px}}
+.dl{display:block;text-decoration:none;background:var(--panel);border:1px solid var(--line);
+    border-radius:11px;padding:20px 22px;color:var(--text)}
+.dl:hover{border-color:var(--accent);color:var(--text)}
+.dl.main{background:linear-gradient(180deg,rgba(200,162,74,.14),rgba(200,162,74,.05));
+         border-color:rgba(200,162,74,.55)}
+.dl b{display:block;font-size:19px;margin-bottom:2px}
+.dl .size{color:var(--accent);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase}
+.dl p{margin:9px 0 0;color:var(--dim);font-size:14.5px;line-height:1.5}
+.need{color:var(--dim);font-size:14px;margin:10px 0 0;padding-bottom:44px}
+.need b{color:var(--text);font-weight:600}
+
+section{padding:56px 0;border-bottom:1px solid var(--line)}
+h2{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);
+   margin:0 0 26px;font-weight:600}
+h3{font-size:19px;margin:0 0 8px;font-weight:600}
+p{margin:0 0 14px}
+.dim{color:var(--dim)}
+
+.cards{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(258px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px 22px}
+.card p{margin:0;color:var(--dim);font-size:15px}
+
+figure{margin:0}
+figcaption{color:var(--dim);font-size:13px;margin-top:8px}
+.shots{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-top:24px}
+.shots img{width:100%;display:block;border-radius:9px;border:1px solid var(--line);background:var(--sunk)}
+
+code{background:var(--sunk);border:1px solid var(--line);border-radius:4px;
+     padding:1px 6px;font-family:ui-monospace,Consolas,monospace;font-size:.88em}
+pre{background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:14px 16px;
+    overflow-x:auto;font-family:ui-monospace,Consolas,monospace;font-size:13.5px;
+    color:var(--dim);margin:0}
+.gallery{display:grid;gap:14px;grid-template-columns:1.5fr 1fr;grid-template-rows:230px 230px;margin:0 0 26px}
+.gallery figure{position:relative;overflow:hidden;border-radius:10px;border:1px solid var(--line);background:var(--sunk)}
+.gallery figure:first-child{grid-row:1/3}
+.gallery img{width:100%;height:100%;object-fit:cover;display:block}
+.gallery figcaption{position:absolute;left:0;right:0;bottom:0;margin:0;padding:12px 14px 10px;
+  background:linear-gradient(transparent,rgba(0,0,0,.78));color:var(--text);font-size:13.5px}
+@media(max-width:720px){.gallery{grid-template-columns:1fr;grid-template-rows:auto}.gallery figure:first-child{grid-row:auto}.gallery img{height:200px}}
+.patchlist{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));margin-top:22px}
+.patchlist .card b{color:var(--text)}
+.arsenal{display:grid;gap:22px;grid-template-columns:1fr 300px;align-items:center}
+@media(max-width:720px){.arsenal{grid-template-columns:1fr}}
+.arsenal img{width:100%;border-radius:9px;border:1px solid var(--line);display:block}
+.cta{display:inline-block;margin-top:14px;padding:11px 18px;border-radius:9px;text-decoration:none;
+  background:linear-gradient(180deg,rgba(200,162,74,.22),rgba(200,162,74,.08));border:1px solid rgba(200,162,74,.55);
+  color:var(--text);font-weight:600}
+.cta:hover{border-color:var(--accent);color:var(--text)}
+ul.plain{list-style:none;padding:0;margin:0}
+ul.plain li{padding:10px 0;border-bottom:1px solid var(--line);color:var(--dim);font-size:15px}
+ul.plain li:last-child{border-bottom:0}
+ul.plain b{color:var(--text);font-weight:600}
+footer{padding:44px 0 64px;color:var(--dim);font-size:14px}
+.story{display:grid;gap:26px;grid-template-columns:1.4fr 1fr;align-items:start}
+@media(max-width:720px){.story{grid-template-columns:1fr}}
+.people{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+.people h3{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:0 0 12px}
+.people li{padding:7px 0;border-bottom:1px solid var(--line);font-size:14.5px;color:var(--dim)}
+.people li:last-child{border-bottom:0}
+.people b{color:var(--text);font-weight:600}
+.tree{margin:26px 0 8px;overflow-x:auto}
+.tree svg{display:block;min-width:760px;width:100%;height:auto}
+.tree.small svg{min-width:0;width:460px;height:208px;max-width:100%}
+.tree .box{fill:var(--panel);stroke:var(--line)}
+.tree .box.fork{stroke:var(--accent)}
+.tree .num{fill:var(--accent);font:600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+.tree .ttl{fill:var(--text);font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+.tree .edge{stroke:var(--line);stroke-width:1.5;fill:none}
+.tree .edge.fork{stroke:var(--accent)}
+.factions{margin-top:26px}
+.factions .card p{font-size:14.5px}
+.factions .card .tag{display:inline-block;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.top{border-bottom:1px solid var(--line);padding:22px 0}
+.top a{text-decoration:none;color:var(--dim);font-size:14px}
+.top a:hover{color:var(--accent)}
+.top .wrap{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.top .name{color:var(--accent);letter-spacing:.10em;text-transform:uppercase;font-size:13px}
+header.page{padding:56px 0 30px}
+h2.big{font-size:32px;letter-spacing:-.02em;text-transform:none;color:var(--text);margin:0 0 12px;font-weight:650}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="wrap">
+    <span class="name">Soldiers of Anarchy &middot; 2002</span>
+    <a href="index.html">&larr; Play it on Windows 11</a>
+  </div>
+</div>
+
+<header class="page">
+  <div class="wrap">
+    <p class="sub">The game</p>
+    <h2 class="big">For anyone who has not met it</h2>
+    <p class="lede">What it is, who you are, where the thirteen missions go and who is waiting there -
+      from the game's own texts, with nothing said about how it ends.</p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="story">
+      <div>
+        <p>Squad tactics in real time, 2002, from Silver Style in Berlin: a handful of soldiers you know
+          by name, a few vehicles you have to find and keep running, and a campaign of thirteen missions
+          on 1200-metre maps of a Russia nobody has been to for ten years.</p>
+        <p>In November 2004 an engineered virus, SGDS, got out. Cities went under quarantine, Paris was
+          bombed by its own government, and the world came apart. Six people at the Russian base
+          Kalinina - four Russians, an American, a German - blew up the only road into their valley and
+          went down into the bunker. That was ten years ago. Now the rations are the same, the radio has
+          been silent for years, and they have decided they would rather die in fresh air than live
+          another day underground. The campaign starts at the bunker door.</p>
+        <p>Between missions you are back at the base: the hangar and the workshop for the vehicles, the
+          hospital for the wounded, a trader who comes by, the equipment screen where every soldier is
+          armed piece by piece. What you bring home from a mission is what you have for the next one -
+          the T-55 you captured, the Hind you found in a barn, the sniper you talked into joining.</p>
+        <p class="dim">The game's own text calls the world after the virus the <i>New Times</i>, and
+          everything before it the <i>Old Times</i>.</p>
+      </div>
+      <div class="people">
+        <h3>The six in the bunker</h3>
+        <ul class="plain">
+          <li><b>Roman Willstein</b> - German first lieutenant, the leader and the voice of the intro; a badly healed leg keeps him at the base.</li>
+          <li><b>David Reaves</b> - US Army sergeant from Philadelphia; leads the squad in the field.</li>
+          <li><b>Boris Kerkowitsch</b> - Russian lance sergeant, once head of the base guard; explosives.</li>
+          <li><b>Prof. Sergej Petrow</b> - geneticist from Kiev, ran the base's research. The one who said to stay down.</li>
+          <li><b>Prof. Vigo Jolinzky</b> - chemist, in a wheelchair since 2007, black humour intact; your voice on the radio.</li>
+          <li><b>Sorana Sorgarowa</b> - Petrow's assistant, the medic.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 style="margin-top:34px">The campaign, and where it forks</h3>
+    <p class="dim" style="max-width:680px">Two choices change what comes next. In mission 4 you pick one of two
+      gangs to fight for, and that decides which of two mirrored roads you take to mission 7; there the paths
+      meet again. In mission 7 you choose a side once more, and this time the roads do not meet: two last
+      missions, two endings. Nothing said here about which is which.</p>
+    <div class="tree">
+<svg viewBox="0 0 1070 212" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The campaign: missions 1 to 4 in a row, a fork into 5a-6a or 5b-6b that meets again in 7, and a fork into 8a-9a or 8b-9b that does not">
+<path class="edge" d="M144 106 H160"/>
+<path class="edge" d="M294 106 H310"/>
+<path class="edge" d="M444 106 H460"/>
+<path class="edge fork" d="M594 106 C602 106 602 34 610 34"/>
+<path class="edge fork" d="M594 106 C602 106 602 178 610 178"/>
+<path class="edge" d="M744 34 H760"/>
+<path class="edge" d="M744 178 H760"/>
+<path class="edge" d="M894 34 C902 34 902 106 910 106"/>
+<path class="edge" d="M894 178 C902 178 902 106 910 106"/>
+<rect class="box" x="10" y="84" width="134" height="44" rx="7"/><text class="num" x="20" y="102">1</text><text class="ttl" x="20" y="119">A leap in the dark</text>
+<rect class="box" x="160" y="84" width="134" height="44" rx="7"/><text class="num" x="170" y="102">2</text><text class="ttl" x="170" y="119">The raid</text>
+<rect class="box" x="310" y="84" width="134" height="44" rx="7"/><text class="num" x="320" y="102">3</text><text class="ttl" x="320" y="119">Market day</text>
+<rect class="box fork" x="460" y="84" width="134" height="44" rx="7"/><text class="num" x="470" y="102">4</text><text class="ttl" x="470" y="119">Two roads. One way.</text>
+<rect class="box" x="610" y="12" width="134" height="44" rx="7"/><text class="num" x="620" y="30">5a</text><text class="ttl" x="620" y="47">In the eye of the storm</text>
+<rect class="box" x="760" y="12" width="134" height="44" rx="7"/><text class="num" x="770" y="30">6a</text><text class="ttl" x="770" y="47">They came in the dusk</text>
+<rect class="box" x="610" y="156" width="134" height="44" rx="7"/><text class="num" x="620" y="174">5b</text><text class="ttl" x="620" y="191">Heroes die Young</text>
+<rect class="box" x="760" y="156" width="134" height="44" rx="7"/><text class="num" x="770" y="174">6b</text><text class="ttl" x="770" y="191">They came in the dusk</text>
+<rect class="box fork" x="910" y="84" width="134" height="44" rx="7"/><text class="num" x="920" y="102">7</text><text class="ttl" x="920" y="119">And follow your destiny</text>
+</svg>
+    </div>
+    <div class="tree small" style="margin-top:0">
+<svg viewBox="0 0 470 212" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="After mission 7: 8a then 9a, or 8b then 9b">
+<path class="edge fork" d="M144 106 C152 106 152 34 160 34"/>
+<path class="edge fork" d="M144 106 C152 106 152 178 160 178"/>
+<path class="edge" d="M294 34 H310"/>
+<path class="edge" d="M294 178 H310"/>
+<rect class="box fork" x="10" y="84" width="134" height="44" rx="7"/><text class="num" x="20" y="102">7</text><text class="ttl" x="20" y="119">And follow your destiny</text>
+<rect class="box" x="160" y="12" width="134" height="44" rx="7"/><text class="num" x="170" y="30">8a</text><text class="ttl" x="170" y="47">Inside the rat hole</text>
+<rect class="box" x="310" y="12" width="134" height="44" rx="7"/><text class="num" x="320" y="30">9a</text><text class="ttl" x="320" y="47">The judgement</text>
+<rect class="box" x="160" y="156" width="134" height="44" rx="7"/><text class="num" x="170" y="174">8b</text><text class="ttl" x="170" y="191">The sign</text>
+<rect class="box" x="310" y="156" width="134" height="44" rx="7"/><text class="num" x="320" y="174">9b</text><text class="ttl" x="320" y="191">Everlasting life</text>
+</svg>
+    </div>
+
+    <h3 style="margin-top:34px">Who is out there</h3>
+    <p class="dim" style="max-width:680px">As the game's own notes panel at the base describes them - the entry for
+      each appears once you have met them.</p>
+    <div class="cards factions">
+      <div class="card"><span class="tag">Trade</span><h3>Seekers</h3><p>The traders of the New Times. They pick the
+        ruins - and the battlefields - clean and sell what they find, each in a territory his guild assigns him.
+        Nobody shoots a Seeker: the gangs need what he brings.</p></div>
+      <div class="card"><span class="tag">Civilians</span><h3>Survivors</h3><p>Villages and free towns, run by whoever
+        could work with their hands before the disaster. Loyal to each other, and handy enough with a rifle after
+        years of the gangs.</p></div>
+      <div class="card"><span class="tag">Gang</span><h3>Slingers</h3><p>Thugs and thieves who think they own the
+        wasteland. They rob and kidnap villagers, have no training and little equipment, and run when a real
+        fight starts.</p></div>
+      <div class="card"><span class="tag">Gang</span><h3>Claws</h3><p>Alcohol, drugs and territory, held with the
+        cruelty of the criminals most of them were. No military schooling, but years of practice with every weapon
+        still around - and as well armed as anyone.</p></div>
+      <div class="card"><span class="tag">Gang</span><h3>TFR</h3><p>Born of a Russian special unit and still fighting
+        like one - tactically, with heavy equipment - and otherwise a gang of contract killers that wipes out whole
+        villages. At war with the Claws.</p></div>
+      <div class="card"><span class="tag">Science</span><h3>NOAH</h3><p>Scientists and soldiers in hidden laboratories,
+        working on a vaccine and on how 2004 happened. Only their Seekers know where they are. Well armed for people
+        who say they only do research.</p></div>
+      <div class="card"><span class="tag">Sect</span><h3>COTUC</h3><p>The Church Of The Undying Child, an obscure
+        1980s sect that came through the virus almost untouched and is now one of the largest armies there is, with
+        weapons nobody else has. Suspected, for that reason, of having had a hand in 2004.</p></div>
+      <div class="card"><span class="tag">Sect</span><h3>Undead Knights</h3><p>Half man, half machine: COTUC's cyborg
+        soldiers, armoured against ordinary ammunition, weapons built into their bodies, loyal past doubt.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Written from the game's own text resources - the story intro, the notes panel at the base and the
+    mission files - for <a href="index.html">the launcher's page</a>. The characters, the factions and the
+    story belong to Silver Style Entertainment.
+  </div>
+</footer>
+</body>
+</html>
