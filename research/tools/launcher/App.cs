@@ -814,6 +814,7 @@ internal sealed class LauncherWindow : Window
 
     private Process StartGame(bool optionsOnly)
     {
+        KeepLastLog();
         var psi = new ProcessStartInfo(_exe)
         {
             // Without this the game does not find its .ubn archives and exits
@@ -823,6 +824,23 @@ internal sealed class LauncherWindow : Window
         };
         if (optionsOnly) psi.Arguments = "-o";
         return Process.Start(psi);
+    }
+
+    /// The game truncates tracefile.log the moment it starts, so after a crash
+    /// the one record of why is gone as soon as the game is started again.
+    /// This keeps the previous run's log as tracefile.prev.log beside it -
+    /// one generation, overwritten each start, and never when the game is
+    /// still running (the log is then its, not a leftover).
+    private void KeepLastLog()
+    {
+        try
+        {
+            if (GameLink.FindGame() != null) return;
+            string log = Path.Combine(_gameDir, "tracefile.log");
+            if (!File.Exists(log) || new FileInfo(log).Length == 0) return;
+            File.Copy(log, Path.Combine(_gameDir, "tracefile.prev.log"), true);
+        }
+        catch (Exception) { }         // a missing copy is not worth stopping the game for
     }
 
     // ------------------------------------------------------- the window mode
