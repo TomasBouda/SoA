@@ -52,7 +52,7 @@ if ($found) {
     foreach ($x in $found) {
         Write-Host ('           {0,-9} {1,8} kB  {2}' -f $x.Why, $x.KB, $x.Rel)
     }
-    Write-Host '           (on the host: F:\Games\SoA\_gameout)'
+    Write-Host '           (on the host: _gameout of the repository)'
 }
 else {
     Write-Host '[export] the game created nothing new.'

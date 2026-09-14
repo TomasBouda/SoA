@@ -27,7 +27,7 @@
 
   <MappedFolders>
     <MappedFolder>
-      <HostFolder>F:\Games\SoA</HostFolder>
+      <HostFolder>F:\Root\GIT\SoA</HostFolder>
       <SandboxFolder>C:\SoA</SandboxFolder>
       <ReadOnly>false</ReadOnly>
     </MappedFolder>

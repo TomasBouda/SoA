@@ -43,7 +43,7 @@ import struct
 import sys
 import zipfile
 
-SOURCE = os.environ.get('SOA_SOURCE', r'F:\Games\SoA\_patched')
+SOURCE = os.environ.get('SOA_SOURCE', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '_patched'))
 GAME = os.environ.get('SOA_GAME', r'F:\Games\SoA-Package\Game')
 
 MAGIC = bytes([0x40, 0xF9, 0xB3, 0x0A, 0x62, 0x93, 0xD1, 0x11,

@@ -62,5 +62,5 @@ if ($LASTEXITCODE -ge 8) {
 }
 else {
     Write-Host ('[saves] mirrored into {0}' -f $mir)
-    Write-Host '        (on the host: F:\Games\SoA\_saves, the history in _savehist)'
+    Write-Host '        (on the host: _saves of the repository, the history in _savehist)'
 }

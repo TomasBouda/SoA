@@ -33,7 +33,7 @@ from PIL import Image
 # the output folder and copies it again from here, so loose files put straight
 # into the package survive until the next build and then vanish without a word.
 # The upscaled terrain and textures live here for the same reason.
-SOURCE = os.environ.get('SOA_SOURCE', r'F:\Games\SoA\_patched')
+SOURCE = os.environ.get('SOA_SOURCE', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '_patched'))
 GAME = SOURCE
 
 # What counts as the interface of a running mission. The shared panels are in

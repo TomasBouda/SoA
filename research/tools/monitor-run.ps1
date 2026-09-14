@@ -254,4 +254,4 @@ DiffMaps $before.Services $after.Services 'SERVICE'
 
 Say ''
 Say "done, the report is in $report" 'OK'
-Say '(on the host: F:\Games\SoA\_sandbox\logs)'
+Say '(on the host: _sandbox\logs of the repository)'

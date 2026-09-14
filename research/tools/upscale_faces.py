@@ -39,7 +39,7 @@ import zipfile
 
 from PIL import Image, ImageDraw
 
-SOURCE = os.environ.get('SOA_SOURCE', r'F:\Games\SoA\_patched')
+SOURCE = os.environ.get('SOA_SOURCE', os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '_patched'))
 
 # Every sheet of faces the game has. The mission ones are the portraits down
 # the side of the screen; the infirmary ones are the same people, larger, in

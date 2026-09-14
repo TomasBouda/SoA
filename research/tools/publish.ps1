@@ -47,8 +47,9 @@
     message of the commit being published.
 #>
 param(
-    # Where the public repository is checked out. It is cloned if missing.
-    [string]$Public = 'F:\Games\SoA-Public',
+    # Where the public repository is checked out - beside this one, as
+    # SoA-Public. It is cloned if missing.
+    [string]$Public = (Join-Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))) 'SoA-Public'),
     [string]$Remote = 'https://github.com/TomasBouda/SoA.git',
     [string]$Message = '',
     # A GitHub token with write access to the repository, for the pipeline;

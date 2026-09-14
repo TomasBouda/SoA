@@ -277,8 +277,10 @@ normalised rather than byte for byte, because git checks the public repository
 out with CRLF while this one keeps LF - compared raw, every text file reads as
 changed and the real change is buried in seventy others.
 
-By hand the checkout lives at `F:\Games\SoA-Public` and is cloned if it is
-not there.
+By hand the checkout lives beside this repository as `SoA-Public` and is
+cloned if it is not there. The packages built by `build-package.ps1` are
+elsewhere - `F:\Games\SoA-Package` and its siblings - on purpose: they are
+what the game runs from, not part of any repository.
 
 Commits carry `Tomáš Bouda <email@tomasbouda.cz>` and no `Co-Authored-By` line.
 Both matter: GitHub pairs a commit to an account by the e-mail, and the

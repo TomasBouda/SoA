@@ -33,9 +33,10 @@ param(
     #   all      each of them, one after the other
     [ValidateSet('full', 'vanilla', 'kit', 'all')]
     [string]$Variant = 'full',
-    [string]$Source = 'F:\Games\SoA\_patched',
-    [string]$Settings = 'F:\Games\SoA\_sandbox\config\soa-settings.reg',
-    [string]$dgVoodoo = 'F:\Games\SoA\_sandbox\tools\dgVoodoo',
+    # The defaults are this repository's own folders, wherever it is checked out.
+    [string]$Source = (Join-Path $PSScriptRoot '..\..\_patched'),
+    [string]$Settings = (Join-Path $PSScriptRoot '..\..\_sandbox\config\soa-settings.reg'),
+    [string]$dgVoodoo = (Join-Path $PSScriptRoot '..\..\_sandbox\tools\dgVoodoo'),
     [string]$Out = '',
     [switch]$Zip,
     # Make the changes rather than expect them already made. Point -Source at a
