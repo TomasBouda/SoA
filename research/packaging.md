@@ -262,12 +262,12 @@ source and the public one is a copy of what the manifest allows.
 
 **The pipeline** is `azure-pipelines.yml` at the root: on every push to
 `main` it checks this repository out, clones the public one into a temporary
-folder and runs `publish.ps1 -Push` with a GitHub token from a secret
-pipeline variable (`GITHUB_TOKEN`, a fine-grained token with *Contents:
-read and write* on the repository) and the first line of the commit's
-message. It adds nothing the script does not do by hand; the commit on
-GitHub carries the author the script sets. Setting it up once: a new
-pipeline from the existing YAML, and the variable, marked secret.
+folder and runs `publish.ps1 -Push` with the GitHub token from the
+variable group `soa-deployment` (`GITHUB_TOKEN`, secret: a token with
+*Contents: read and write* on the repository) and the first line of the
+commit's message. It adds nothing the script does not do by hand; the
+commit on GitHub carries the author the script sets. Setting it up once: a
+new pipeline from the existing YAML file.
 
     publish.ps1                       what would change, and nothing else
     publish.ps1 -Push -Message "..."  copy, commit and push, from this machine
