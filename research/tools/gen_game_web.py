@@ -6,14 +6,14 @@ titles are the MISSIONTITLE records of the mission texts and the forks are
 what the mission files name as their successors (architecture.md, "Where
 the campaign branches").
 
-    python gen_game_web.py            writes SoA-Public/docs/game.html
+    python gen_game_web.py            writes _public/docs/game.html (publish.ps1 takes it out)
 """
 import io
 import os
 import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DOCS = os.path.join(HERE, '..', '..', '..', 'SoA-Public', 'docs')
+DOCS = os.path.join(HERE, '..', '..', '_public', 'docs')
 
 CSS = '''.story{display:grid;gap:26px;grid-template-columns:1.4fr 1fr;align-items:start}
 @media(max-width:720px){.story{grid-template-columns:1fr}}

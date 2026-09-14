@@ -233,32 +233,52 @@ about the size of the result and buys nothing but the argument.
 
 ## Keeping the public repository up to date
 
-`tools/publish.ps1`. Until it existed the public repository was updated by hand
-out of a temporary folder, which is a way of working that goes wrong quietly: a
-tool changes here and the public copy silently stays old, and every new file
-needs somebody to remember whether it may go out.
+`tools/publish.ps1`, and the pipeline that runs it. Until the script existed
+the public repository was updated by hand out of a temporary folder, which is
+a way of working that goes wrong quietly: a tool changes here and the public
+copy silently stays old, and every new file needs somebody to remember
+whether it may go out.
 
-**It works from an allow list, not a deny list.** A file goes out because a rule
-names it; a new file that no rule names stays here. That way round matters,
-because getting it wrong publishes the game's own data by accident and it cannot
-be taken back.
+**The list of what goes out is
+[tools/publish-manifest.json](tools/publish-manifest.json)** - an allow list,
+not a deny list. A file goes out because a rule there names it (a folder
+here, a folder there, the file names that may go); a new file that no rule
+names stays here. That way round matters, because getting it wrong publishes
+the game's own data by accident and it cannot be taken back. The manifest
+also names what is refused whatever the rules say - `.ubn`, `.diff3D`,
+`.sav`, `.mis`, `.trs`, `.mp3`, `.tga`, an exe, a dll, anything over 8 MB -
+because the list is written by hand and hands slip.
 
-It also refuses, whatever the rules say, anything shaped like the game's own
-data - `.ubn`, `.diff3D`, `.sav`, `.mis`, `.trs`, `.mp3`, `.tga`, an exe, a dll,
-or simply anything over 8 MB, since nothing of ours is. The allow list is
-written by hand and hands slip.
+The public repository gets `PUBLISHED.md` on every run: every file it holds
+and the rule that put it there, readable on GitHub without reading either
+the script or the manifest.
+
+**The website and the public README live here too**, under `_public/` -
+`_public/docs/` is what GitHub Pages serves, `_public/README.md` the
+repository's front page - and go out through the same rules. They used to be
+edited in the public checkout, which meant a change there had no pipeline
+and a change here could not reach them; now this repository is the only
+source and the public one is a copy of what the manifest allows.
+
+**The pipeline** is `azure-pipelines.yml` at the root: on every push to
+`main` it checks this repository out, clones the public one into a temporary
+folder and runs `publish.ps1 -Push` with a GitHub token from a secret
+pipeline variable (`GITHUB_TOKEN`, a fine-grained token with *Contents:
+read and write* on the repository) and the first line of the commit's
+message. It adds nothing the script does not do by hand; the commit on
+GitHub carries the author the script sets. Setting it up once: a new
+pipeline from the existing YAML, and the variable, marked secret.
 
     publish.ps1                       what would change, and nothing else
-    publish.ps1 -Push -Message "..."  copy, commit and push
+    publish.ps1 -Push -Message "..."  copy, commit and push, from this machine
 
 The dry run is the default deliberately. It compares with the line endings
 normalised rather than byte for byte, because git checks the public repository
 out with CRLF while this one keeps LF - compared raw, every text file reads as
 changed and the real change is buried in seventy others.
 
-The checkout lives at `F:\Games\SoA-Public` and is cloned if it is not there.
-`README.md` and `docs/` are edited in that repository and this script leaves them
-alone.
+By hand the checkout lives at `F:\Games\SoA-Public` and is cloned if it is
+not there.
 
 Commits carry `Tomáš Bouda <email@tomasbouda.cz>` and no `Co-Authored-By` line.
 Both matter: GitHub pairs a commit to an account by the e-mail, and the

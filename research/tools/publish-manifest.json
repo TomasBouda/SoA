@@ -1,0 +1,37 @@
+{
+  "_": [
+    "What may go out of this repository into github.com/TomasBouda/SoA, and nothing else.",
+    "publish.ps1 reads this; a file is published because a rule here names it.",
+    "'from' is a folder in this repository, 'to' the folder in the public one, 'files' the",
+    "names that may go (not recursive: one rule per folder). Everything else stays here.",
+    "The public repository also gets PUBLISHED.md, written by the script: every file it holds and the rule that put it there."
+  ],
+  "rules": [
+    { "from": "_public",                        "to": ".",                        "files": ["README.md", ".gitignore"],
+      "note": "The public repository's own front matter." },
+    { "from": "_public/docs",                   "to": "docs",                     "files": ["*.html"],
+      "note": "The website, GitHub Pages serves docs/: the front page, the Arsenal, the page about the game." },
+    { "from": "_public/docs/img",               "to": "docs/img",                 "files": ["*.png", "*.jpg"],
+      "note": "The website's pictures." },
+    { "from": "_public/docs/img/patches",       "to": "docs/img/patches",         "files": ["*.png", "*.jpg"] },
+    { "from": "_research",                      "to": "research",                 "files": ["*.md"],
+      "note": "The research: architecture.md, cheats.md, TODO.md and the rest." },
+    { "from": "_research/tools",                "to": "research/tools",           "files": ["*.py", "*.ps1", "addresses.json", "publish-manifest.json"],
+      "note": "The tools, this manifest among them." },
+    { "from": "_research/tools/launcher",       "to": "research/tools/launcher",  "files": ["*.cs", "catalog.txt", "soa.ico"],
+      "note": "The launcher's source." },
+    { "from": "_research/tools/launcher/catalog", "to": "research/tools/launcher/catalog", "files": ["*.png"],
+      "note": "The catalog pictures are built out of the game's own data and are here by the owner's decision, the same one that put them in the public kit: the launcher is no use without them. The single exception to the rule that only our own work is published, and deliberate." },
+    { "from": "_research/tools/sandbox",        "to": "research/tools/sandbox",   "files": ["*.ps1", "*.cmd", "*.md", "sandbox.template"] },
+    { "from": "_research/pictures",             "to": "research/pictures",        "files": ["*.png", "*.jpg"],
+      "note": "Our own pictures: frames of the game with the patches at work, the launcher's windows." },
+    { "from": "_research/translation",          "to": "research/translation",     "files": ["cs.tsv", "glossary.md"] },
+    { "from": "analysis",                       "to": "analysis",                 "files": ["*.py"] },
+    { "from": "_sandbox",                       "to": "sandbox",                  "files": ["*.ps1", "*.cmd", "*.wsb"] }
+  ],
+  "forbidden": {
+    "_": "Refused whatever the rules say: the shapes the game's own data takes, and anything over the size.",
+    "names": ["*.ubn", "*.diff3D", "*.sav", "*.mis", "*.trs", "*.lay", "*.olb", "*.bik", "*.mp3", "*.wav", "*.tga", "*.exe", "*.dll", "*.pth"],
+    "maxBytes": 8388608
+  }
+}

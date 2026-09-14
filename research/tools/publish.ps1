@@ -7,7 +7,7 @@
     The two repositories are separate on purpose. This one holds the game -
     its archives, its executable, the upscaled textures, the saves - and none
     of that is ours to hand out. github.com/TomasBouda/SoA holds our own
-    writing and our own code, and nothing else.
+    writing, our own code and the website, and nothing else.
 
     Nothing propagated between them until this script existed: the public
     repository was updated by hand, from a working copy in a temporary folder,
@@ -15,14 +15,23 @@
     the public copy silently stays old; a new file appears and somebody has to
     remember whether it may go out.
 
-    So the rule this enforces is an **allow list, not a deny list**. A file
-    goes out because a rule below names it, and a new file that no rule names
-    stays here. Getting that the wrong way round is how the game's own data
-    ends up published by accident, and it cannot be taken back once it is.
+    So the rule this enforces is an **allow list, not a deny list**, and the
+    list is publish-manifest.json beside this script. A file goes out because
+    a rule there names it, and a new file that no rule names stays here.
+    Getting that the wrong way round is how the game's own data ends up
+    published by accident, and it cannot be taken back once it is.
 
     It refuses to publish anything that looks like the game's data even when a
-    rule would allow it - see the guard further down. That check exists because
-    the allow list is written by hand and hands slip.
+    rule would allow it - the manifest's "forbidden" part. That check exists
+    because the allow list is written by hand and hands slip.
+
+    The public repository also gets PUBLISHED.md, written here on every run:
+    every file it holds and the rule that put it there, so what is published
+    can be read on GitHub without reading this script.
+
+    The pipeline (azure-pipelines.yml at the root of this repository) runs
+    this on every push to main with -Token, so the public repository follows
+    this one on its own; run by hand it does the same from this machine.
 
 .EXAMPLE
     publish.ps1
@@ -31,18 +40,27 @@
 .EXAMPLE
     publish.ps1 -Push -Message "Read the mission scripts"
     Copy, commit and push.
+
+.EXAMPLE
+    publish.ps1 -Push -Public $env:TEMP\public -Token $env:GITHUB_TOKEN
+    What the pipeline does: a fresh clone, the token for the push, the
+    message of the commit being published.
 #>
 param(
     # Where the public repository is checked out. It is cloned if missing.
     [string]$Public = 'F:\Games\SoA-Public',
     [string]$Remote = 'https://github.com/TomasBouda/SoA.git',
     [string]$Message = '',
+    # A GitHub token with write access to the repository, for the pipeline;
+    # it is used for the clone and the push and is not written anywhere.
+    [string]$Token = '',
     # Without this the script only says what it would do.
     [switch]$Push
 )
 
 $ErrorActionPreference = 'Stop'
 $Source = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)   # ...\Games\SoA
+$Manifest = Join-Path $PSScriptRoot 'publish-manifest.json'
 
 # The commits must carry this and nothing else. The e-mail is what GitHub pairs
 # a commit with an account by, and the obvious-looking one on this machine
@@ -51,6 +69,7 @@ $Source = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)   # ...\Games\So
 # either: GitHub counts a co-author as a contributor.
 $AuthorName = 'Tomáš Bouda'
 $AuthorMail = 'email@tomasbouda.cz'
+$Listing = 'PUBLISHED.md'
 
 function Say([string]$m, [string]$lvl = 'INFO') {
     $color = switch ($lvl) { 'OK' { 'Green' } 'WARN' { 'Yellow' } 'BAD' { 'Red' } default { 'Gray' } }
@@ -58,36 +77,10 @@ function Say([string]$m, [string]$lvl = 'INFO') {
 }
 
 # --- what may go out ------------------------------------------------------
-# From, to, and which files. Everything else stays in this repository.
-$rules = @(
-    @{ from = '_research';                  to = 'research';                 files = '*.md' }
-    @{ from = '_research\tools';            to = 'research\tools';           files = @('*.py', '*.ps1', 'addresses.json') }
-    @{ from = '_research\tools\launcher';   to = 'research\tools\launcher';  files = @('*.cs', 'catalog.txt', 'soa.ico') }
-    # The catalog is built out of the game's own data and is here by the
-    # owner's decision, the same one that put it in the public kit: the
-    # launcher is no use without it. It is the single exception to the rule
-    # that only our own work is published, and it is deliberate.
-    @{ from = '_research\tools\launcher\catalog'; to = 'research\tools\launcher\catalog'; files = '*.png' }
-    @{ from = '_research\tools\sandbox';    to = 'research\tools\sandbox';   files = @('*.ps1', '*.cmd', '*.md', 'sandbox.template') }
-    # Our own pictures: frames of the game with the patches at work and the
-    # launcher's windows, what the Arsenal page and the docs show.
-    @{ from = '_research\pictures';         to = 'research\pictures';        files = @('*.png', '*.jpg') }
-    @{ from = '_research\translation';      to = 'research\translation';     files = @('cs.tsv', 'glossary.md') }
-    @{ from = 'analysis';                   to = 'analysis';                 files = '*.py' }
-    @{ from = '_sandbox';                   to = 'sandbox';                  files = @('*.ps1', '*.cmd', '*.wsb') }
-)
-
-# Files that live only in the public repository and are edited there. The
-# script owns the folders above and would otherwise delete anything in them it
-# cannot account for; these are none of its business.
-$notOurs = @('README.md', '.gitignore', 'LICENSE', 'docs')
-
-# --- the guard ------------------------------------------------------------
-# The allow list is written by hand and hands slip, so nothing gets published
-# without passing this as well. These are the shapes the game's own data takes.
-$forbidden = @('*.ubn', '*.diff3D', '*.sav', '*.mis', '*.trs', '*.lay', '*.olb',
-               '*.bik', '*.mp3', '*.wav', '*.tga', '*.exe', '*.dll', '*.pth')
-$forbiddenSize = 8MB
+$manifest = Get-Content $Manifest -Raw -Encoding UTF8 | ConvertFrom-Json
+$rules = @($manifest.rules)
+$forbidden = @($manifest.forbidden.names)
+$forbiddenSize = [long]$manifest.forbidden.maxBytes
 
 function Refuse([string]$path) {
     $name = Split-Path -Leaf $path
@@ -100,6 +93,15 @@ function Refuse([string]$path) {
     return $null
 }
 
+function PublicPath([string]$to, [string]$name) {
+    if ($to -eq '.') { return $name }
+    return Join-Path $to $name
+}
+
+# The remote with the token in it, for the pipeline; the checkout never keeps it.
+$authed = $Remote
+if ($Token) { $authed = $Remote -replace '^https://', "https://x-access-token:$Token@" }
+
 Write-Host ''
 Write-Host '=== Publishing to GitHub ===' -ForegroundColor Cyan
 if (-not $Push) { Say 'a dry run - nothing is copied, committed or pushed' 'WARN' }
@@ -108,8 +110,9 @@ if (-not $Push) { Say 'a dry run - nothing is copied, committed or pushed' 'WARN
 if (-not (Test-Path (Join-Path $Public '.git'))) {
     Say "cloning $Remote into $Public"
     if ($Push) {
-        git clone --quiet $Remote $Public
+        git clone --quiet $authed $Public
         if ($LASTEXITCODE -ne 0) { throw 'the clone failed' }
+        if ($Token) { git -C $Public remote set-url origin $Remote }
     } else {
         Say 'the dry run stops here: there is nothing to compare against yet' 'WARN'
         return
@@ -117,28 +120,59 @@ if (-not (Test-Path (Join-Path $Public '.git'))) {
 } else {
     Say "bringing $Public up to date"
     if ($Push) {
-        git -C $Public pull --quiet --ff-only
+        git -C $Public pull --quiet --ff-only $authed
         if ($LASTEXITCODE -ne 0) { throw 'the pull failed - the checkout and the remote have diverged' }
     }
 }
 
 # --- 2. what the rules select --------------------------------------------
 $wanted = @{}      # relative path in the public repo -> the file it comes from
-foreach ($rule in $rules) {
-    $from = Join-Path $Source $rule.from
+$ruleOf = @{}      # relative path -> the rule's index, for the listing
+for ($i = 0; $i -lt $rules.Count; $i++) {
+    $rule = $rules[$i]
+    $from = Join-Path $Source ($rule.from -replace '/', '\')
     if (-not (Test-Path $from)) { Say "$($rule.from) is not there" 'WARN'; continue }
     foreach ($pattern in @($rule.files)) {
-        foreach ($file in Get-ChildItem $from -File -Filter $pattern -ErrorAction SilentlyContinue) {
+        foreach ($file in Get-ChildItem $from -File -Filter $pattern -Force -ErrorAction SilentlyContinue) {
             $why = Refuse $file.FullName
             if ($why) {
                 Say "refusing $($rule.from)\$($file.Name) - $why" 'BAD'
                 continue
             }
-            $wanted[(Join-Path $rule.to $file.Name)] = $file.FullName
+            $rel = PublicPath ($rule.to -replace '/', '\') $file.Name
+            $wanted[$rel] = $file.FullName
+            $ruleOf[$rel] = $i
         }
     }
 }
 Say "$($wanted.Count) files may be published"
+
+# --- the listing ----------------------------------------------------------
+# Written into the public repository on every run, so what is published can be
+# read there. It is compared like any other file, so a run that changes nothing
+# else and nothing here is still a no-op.
+$lines = @('# What is published here', '',
+           'Everything in this repository comes out of a private one that also holds the game itself,',
+           'which is not ours to hand out. A file is here because a rule in',
+           '[research/tools/publish-manifest.json](research/tools/publish-manifest.json) names it - an allow list,',
+           'kept by [research/tools/publish.ps1](research/tools/publish.ps1), which the pipeline runs on every push',
+           'and which also writes this file. Nothing shaped like the game''s data passes, whatever the rules say.', '')
+for ($i = 0; $i -lt $rules.Count; $i++) {
+    $rule = $rules[$i]
+    $files = @($ruleOf.Keys | Where-Object { $ruleOf[$_] -eq $i } | Sort-Object)
+    if ($files.Count -eq 0) { continue }
+    $where = if ($rule.to -eq '.') { 'the root' } else { "``$($rule.to)/``" }
+    $lines += "## $where - $($files.Count) file$(if ($files.Count -ne 1) { 's' })"
+    $lines += ''
+    if ($rule.note) { $lines += $rule.note; $lines += '' }
+    $lines += ('From `{0}/`: {1}' -f $rule.from, (($rule.files | ForEach-Object { "``$_``" }) -join ', '))
+    $lines += ''
+    foreach ($f in $files) { $lines += ('- ' + ($f -replace '\\', '/')) }
+    $lines += ''
+}
+$listingTmp = Join-Path ([IO.Path]::GetTempPath()) 'soa-published.md'
+[IO.File]::WriteAllText($listingTmp, (($lines -join "`n") + "`n"), (New-Object Text.UTF8Encoding $false))
+$wanted[$Listing] = $listingTmp
 
 # --- 3. what that changes ------------------------------------------------
 # Compared with the line endings normalised, not byte for byte. Git checks the
@@ -162,14 +196,13 @@ foreach ($rel in $wanted.Keys) {
     if (-not (Same $wanted[$rel] $target)) { $changed += $rel }
 }
 # Removals propagate too, but only inside the folders the rules own - anything
-# else in the public repository is somebody else's and is left alone.
-$owned = $rules | ForEach-Object { $_.to } | Sort-Object -Unique
+# else in the public repository is left alone.
+$owned = $rules | ForEach-Object { $_.to -replace '/', '\' } | Sort-Object -Unique
 foreach ($folder in $owned) {
-    $here = Join-Path $Public $folder
+    $here = if ($folder -eq '.') { $Public } else { Join-Path $Public $folder }
     if (-not (Test-Path $here)) { continue }
-    foreach ($file in Get-ChildItem $here -File) {
-        $rel = Join-Path $folder $file.Name
-        if ($notOurs -contains $file.Name) { continue }
+    foreach ($file in Get-ChildItem $here -File -Force) {
+        $rel = PublicPath $folder $file.Name
         if (-not $wanted.ContainsKey($rel)) { $removed += $rel }
     }
 }
@@ -193,7 +226,7 @@ if (-not $Push) {
 foreach ($rel in ($new + $changed)) {
     $target = Join-Path $Public $rel
     $dir = Split-Path -Parent $target
-    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+    if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
     Copy-Item $wanted[$rel] $target -Force
 }
 foreach ($rel in $removed) { git -C $Public rm --quiet -- $rel }
@@ -204,7 +237,7 @@ if (-not $Message) {
 git -C $Public add -A
 git -C $Public -c "user.name=$AuthorName" -c "user.email=$AuthorMail" commit --quiet -m $Message
 if ($LASTEXITCODE -ne 0) { throw 'the commit failed' }
-git -C $Public push --quiet
+git -C $Public push --quiet $authed HEAD:main
 if ($LASTEXITCODE -ne 0) { throw 'the push failed' }
 
 $head = (git -C $Public log -1 --format='%h %an <%ae>').Trim()
