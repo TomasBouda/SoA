@@ -99,11 +99,17 @@ internal static class Patches
             Tip = "The game minimises itself the moment it loses focus, in full screen "
                 + "too - which drops it into the taskbar whenever the console or the "
                 + "map is clicked. Two jumps in the window procedure, both made "
-                + "unconditional.",
+                + "unconditional - and the window no longer makes itself layered on "
+                + "the way out, since a layered window that is not minimised is one "
+                + "the mouse passes straight through: the game stayed on screen and "
+                + "could not be clicked back into.",
             Sites = new[]
             {
                 Site("83FD08578BF1", "75", "EB"),
                 Site("6AF052FF156C627B00389EC5000000", "0F84", "90E9"),
+                // The window must not go layered either: kept up instead of
+                // minimised, a layered window is one the mouse passes through.
+                Site("FF1570627B008B5678", "0D00000800", "0D00000000"),
             },
         },
         new ExePatch

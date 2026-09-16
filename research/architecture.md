@@ -359,6 +359,21 @@ it when the mode is picked. Two more things belong to the same story:
   `jne` becomes a `jmp`, the `je` becomes a `nop` and a `jmp` of the same
   length) and both are written whatever the mode is; they belong to the window
   mode as little as the log sharing does.
+* **And the window must not go layered.** The full-screen deactivation branch
+  does one more thing before it minimises: `GetWindowLongA(GWL_EXSTYLE) |
+  WS_EX_LAYERED` and `SetWindowLongA` back (`0x628632`), a way of hiding a
+  full-screen window that the taskbar will bring back; the stock game clears
+  the bit again in the message pump (`0x627EFB`) once DirectDraw says the
+  exclusive mode is available and the window is no longer iconic. Kept up
+  instead of minimised, that bit is a trap: a layered window that never had
+  its attributes set is one the mouse passes straight through, so after a
+  look at the launcher's console the game stayed on screen (dgVoodoo keeps
+  presenting) and could not be clicked back into - "clicking stopped
+  working", twice in one evening, with `DDERR_SURFACELOST` in the log at
+  the moment of the alt-tab and nothing else. The third site of the focus
+  patch turns `or eax, 0x80000` into `or eax, 0`: the style is written back
+  unchanged, and the pump's own recovery still runs when the game is
+  activated again, by a click now as well as by the keyboard.
 * **The size of the window cannot be fixed the same way.** The game only
   resizes its window in the full screen path (`0x6282C5`), and the rectangle it
   applies there does not come from the display mode: a few lines earlier the

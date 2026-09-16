@@ -257,6 +257,16 @@ PATCHES = [
      h('83FD08' '57' '8BF1'), h('75'), h('EB')),
     ('focus', 'no minimising on deactivation (full screen)',
      h('6AF0' '52' 'FF156C627B00' '389EC5000000'), h('0F84'), h('90E9')),
+    # The same branch makes the window layered (WS_EX_LAYERED, 0x80000) before
+    # it minimises: a way of hiding a full-screen window the taskbar will bring
+    # back. Kept up instead of minimised, a layered window with no attributes
+    # set is one the mouse passes straight through - the game stays on screen
+    # and cannot be clicked back into, which is what "clicking stopped working"
+    # after a look at the console was. `or eax, 0x80000` becomes `or eax, 0`;
+    # the style is written back unchanged and the message pump's own recovery
+    # (0x627EFB, when the exclusive mode is available again) does the rest.
+    ('focus', 'no layered window on deactivation, so it can be clicked back',
+     h('FF1570627B00' '8B5678'), h('0D00000800'), h('0D00000000')),
     ('intro', 'no logos and no intro video at startup',
      h('C700F8867C00' '895814' '895818' 'A3FC5A8700' '8BF0' 'EB02' '33F6'),
      h('8A44241383'), h('E9AC000000')),
