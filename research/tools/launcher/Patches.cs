@@ -253,6 +253,23 @@ internal static class Patches
         },
         new ExePatch
         {
+            Key = "render", Name = "A frame the graphics driver refuses is skipped, not fatal",
+            Tip = "When the exclusive full screen is lost or comes back - an alt-tab, a "
+                + "notification, a mode switch - dgVoodoo can answer one frame with "
+                + "DDERR_NODRIVERSUPPORT, and the game's error handler answers that by "
+                + "quitting: 'Program termination after error 0x887602F8' in "
+                + "tracefile.log, most likely in the middle of loading a save. The frame "
+                + "routine already skips a frame for DDERR_SURFACEBUSY; this makes it "
+                + "skip one for that answer too and draw the next.",
+            Sites = new[]
+            {
+                Site("8B078BCFFF503C8BF0", "81FEAE0176887507", "E920021900909090"),
+                At(0x3B4E60, "0000000000000000000000000000000000000000000000000000",
+                   "81FEAE017688740D81FEF80276887405E9D5FDE6FFE9C9FDE6FF"),
+            },
+        },
+        new ExePatch
+        {
             Key = "charset", Name = "Central European characters in the fonts",
             Tip = "The game builds its fonts from Windows fonts and asks for the machine's "
                 + "default character set, so a Czech or Polish translation loses its "

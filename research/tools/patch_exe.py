@@ -174,6 +174,21 @@ camera's; served from the Tick it found nothing - answers whatever request
 is there, on the game's thread, once a frame. Nothing in the game writes the
 request; tools/ui_inject.py does.
 
+**A lost frame is not fatal.** The frame routine of DXAppDirectDraw.cpp
+(0x624B80: BeginScene, Clear, the scene, Flip) returns whatever DirectDraw
+answered, and its caller hands anything but success to the game's error
+handler, which logs `Program termination after error` and quits. One answer
+is already excused at 0x624C3B - DDERR_SURFACEBUSY (0x887601AE) turns into
+a skipped frame. Under dgVoodoo a second one shows up when the exclusive
+full screen is lost or comes back (an alt-tab, a notification, a mode
+switch): DDERR_NODRIVERSUPPORT, 0x887602F8. It ended a game in the middle
+of loading a save - tracefile.log said `DXAppDirectDraw.cpp(236)` and the
+termination line, nothing else - and it is the same code the game's own
+screenshot call died of when a menu was up. The render patch routes the
+comparison through the padding at 0x7B4E60 and excuses that answer too:
+the frame is skipped, the next one is drawn. If the device is really gone
+the game shows nothing until it is back instead of closing.
+
 **The M34 grenade.** A sixth thrown weapon, item 150 with its round 151:
 the data is mod_m34.py's (Data.set, the texts, the icon, all loose files),
 the bytes are m34_patch.py's, which lists every table and switch in the exe
@@ -206,6 +221,8 @@ Usage:
     python patch_exe.py --airstrike-menu  the air strike button in every mission, on the point clicked
     python patch_exe.py --no-airstrike-menu  back to the designer's markers only
     python patch_exe.py --m34             the M34 white phosphorus grenade, item 150 (needs mod_m34.py's files)
+    python patch_exe.py --lost-frame      a frame DirectDraw refuses is skipped, not fatal
+    python patch_exe.py --fatal-frame     back to the original
     python patch_exe.py --no-m34          back to five thrown weapons
     python patch_exe.py --font NAME       the Windows font the screens are drawn with (Tahoma as shipped)
     python patch_exe.py --bitmap-font NAME  the one the game bakes into a texture (Arial as shipped)
@@ -305,6 +322,13 @@ PATCHES = [
      h('4533FFE931FFFFFF'), h('8D5424288BCB52E8B3C80D00'), h('E969821D0090909090909090')),
     ('airstrike', 'the plane landing takes the ping off the minimap',
      h('9090909090909090'), h('A08812860083EC10'), h('E9F9050700909090')),
+    # A frame DirectDraw answers with DDERR_NODRIVERSUPPORT is skipped like one
+    # it answers with DDERR_SURFACEBUSY, instead of ending the game.
+    ('render', 'the frame routine excuses a second DirectDraw answer',
+     h('8B078BCFFF503C8BF0'), h('81FEAE0176887507'), h('E920021900909090')),
+    ('render', 'the comparison, in the padding of .text',
+     0x3B4E60, h('0000000000000000000000000000000000000000000000000000'),
+     h('81FEAE017688740D81FEF80276887405E9D5FDE6FFE9C9FDE6FF')),
     ('airstrike', 'the point, the clip name and the code, in the padding of .text',
      0x3B4980, h('000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'),
      h('00000000000000000000000000000000726164696F5F616972737472696B655F612E77617600000000000000000000008B8548010000A380497B008B854C010000A384497B00C70588497B0000000000A1845A87008B481885C9E9067AD1FF8B44242C3B44243075116880497B006A01508D4C2434E876ACEFFF8D5424288BCB52E82A46F0FF85C0755F8B0DA45A870085C9741B68114A0000680000FF00FF3584497B00FF3580497B00E841C7E3FFA0A9497B00FEC03C03720230C0A2A9497B000461A2A0497B006A0083EC108BCC68A8497B006890497B00E82213C5FF8B0DAC0F8800E81723EFFFE90F7DE2FF518B0DA45A870085C9740A68114A0000E84DC7E3FF59A08812860083EC10E9E7F9F8FF')),
@@ -481,6 +505,10 @@ def main():
                     help='the M34 white phosphorus grenade, a sixth thrown weapon - '
                          'with the data files mod_m34.py writes beside the game')
     ap.add_argument('--no-m34', action='store_true', help='back to the original')
+    ap.add_argument('--lost-frame', action='store_true',
+                    help='a frame DirectDraw refuses (DDERR_NODRIVERSUPPORT, the lost full screen) '
+                         'is skipped instead of ending the game')
+    ap.add_argument('--fatal-frame', action='store_true', help='back to the original')
     ap.add_argument('--east-europe', action='store_true',
                     help='ask Windows for the central European characters, so a '
                          'Czech or Polish translation keeps its diacritics')
@@ -565,6 +593,10 @@ def main():
         wanted['m34'] = True
     if args.no_m34:
         wanted['m34'] = False
+    if args.lost_frame:
+        wanted['render'] = True
+    if args.fatal_frame:
+        wanted['render'] = False
     charset = None
     if args.east_europe:
         charset = EASTEUROPE_CHARSET

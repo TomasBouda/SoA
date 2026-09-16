@@ -34,9 +34,9 @@ param(
     [ValidateSet('full', 'vanilla', 'kit', 'all')]
     [string]$Variant = 'full',
     # The defaults are this repository's own folders, wherever it is checked out.
-    [string]$Source = (Join-Path $PSScriptRoot '..\..\_patched'),
-    [string]$Settings = (Join-Path $PSScriptRoot '..\..\_sandbox\config\soa-settings.reg'),
-    [string]$dgVoodoo = (Join-Path $PSScriptRoot '..\..\_sandbox\tools\dgVoodoo'),
+    [string]$Source = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\_patched')),
+    [string]$Settings = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\_sandbox\config\soa-settings.reg')),
+    [string]$dgVoodoo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\_sandbox\tools\dgVoodoo')),
     [string]$Out = '',
     [switch]$Zip,
     # Make the changes rather than expect them already made. Point -Source at a
@@ -283,9 +283,9 @@ if (-not $wantOurChanges) {
 else {
     $patcher = Join-Path $PSScriptRoot 'patch_exe.py'
     if (Test-Path $patcher) {
-        & py -3 $patcher --exe $exe --fullscreen --no-intro --keep-focus --share-log --camera --fast-camera --active-pause --mailbox --airstrike-menu --m34 | Out-Null
+        & py -3 $patcher --exe $exe --fullscreen --no-intro --keep-focus --share-log --camera --fast-camera --active-pause --mailbox --airstrike-menu --m34 --lost-frame | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'putting soa.exe into a known state failed' }
-        Say 'soa.exe set to full screen, no intro, keeps focus, shared log, free and fast camera, active pause, mailbox, air strike in the menu, the M34' 'OK'
+        Say 'soa.exe set to full screen, no intro, keeps focus, shared log, free and fast camera, active pause, mailbox, air strike in the menu, the M34, a lost frame skipped' 'OK'
     }
     else { Say 'patch_exe.py not found, soa.exe goes in as it was found' 'WARN' }
 
@@ -682,7 +682,9 @@ What is different from the original
   phosphorus grenade - a sixth thrown weapon the game never had, a pack of
   three the trader sells, a circle of fire where it lands; and the font the
   game draws with, any one Windows has - the game asks for Tahoma by name and
-  the name is all that is changed
+  the name is all that is changed; and a frame the graphics driver refuses
+  is skipped instead of closing the game, which is what a lost full screen
+  used to do in the middle of loading a save
 
 Saved games
 -----------

@@ -427,6 +427,43 @@ directory - the `Game` folder when the launcher starts it - counting up from
 `shot0000.png`, so nothing is ever overwritten. It is the only way to take a
 picture of the game without leaving it, which full screen does not forgive.
 
+## A lost frame ends the game - or did
+
+`tracefile.log` after a game that closed on its own, in the middle of
+loading a save from the pause menu:
+
+    Y2KMission.cpp(1855) : LoadMission(...\QuickSave.sav)
+    Y2KMission.cpp(1994) : LoadMission Pos16
+    DXAppDirectDraw.cpp(236) : TRACE_ERROR: Error: ASSERT_HRESULT(0x887602F8)
+    ErrorHandler.cpp(158) : TRACE_ERROR: Error: Program termination after error 0x887602F8.
+
+No dump, no Windows event: the game's own error handler quits on purpose.
+`0x887602F8` is `DDERR_NODRIVERSUPPORT`, and it came out of the frame
+routine of `DXAppDirectDraw.cpp` (0x624B80 - BeginScene, Clear, the scene,
+Flip), which returns whatever DirectDraw answered. The routine already
+forgives one answer:
+
+    00624C3B  cmp esi, 0x887601AE      ; DDERR_SURFACEBUSY
+    00624C41  jne 0x624C4A             ; anything else: log it, return it
+    00624C43  xor eax, eax             ; busy: this frame is skipped, return 0
+
+Under dgVoodoo the second answer arrives when the exclusive full screen is
+lost or comes back - an alt-tab, a notification, a display mode switch -
+and a mission load is where the game draws frames with the least patience.
+It is the same code the game's own screenshot call (0x6031B0) died of when
+a menu was up, back when the bots used it. Clicks stopping in the minutes
+before are most likely the same state seen from the other side.
+
+`patch_exe.py --lost-frame` (the launcher's *render* box) routes the
+comparison through 0x7B4E60 and forgives `0x887602F8` the same way: the
+frame is skipped, the next one drawn. Whether dgVoodoo then recovers on
+the next frame is what the patch bets on; if the device is truly gone the
+game shows nothing until it is back instead of closing.
+
+Since the game truncates `tracefile.log` at every start, the launcher
+keeps the previous run's as `tracefile.prev.log` - which is how the next
+one of these will be read without having to be quick.
+
 ## The fonts come from Windows, by name
 
 The game draws no font of its own. Two names are in the exe, and every letter
