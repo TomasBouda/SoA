@@ -92,6 +92,7 @@ internal sealed class LauncherWindow : Window
 
     private ComboBox _resolution;
     private ComboBox _mode;
+    private const int MODE_WINDOWED = 0, MODE_BORDERLESS = 1, MODE_EXCLUSIVE = 2;
     private Button _findGame;
     private CheckBox _skipIntro;
     private CheckBox _phong;
@@ -684,11 +685,21 @@ internal sealed class LauncherWindow : Window
         _resolutions = list;
         _desktopResolution = desktop;
 
+        // Three ways to put the game on the screen. Windowed and full screen
+        // are decided inside soa.exe (a framed window, or a borderless popup
+        // the size of the monitor); whether dgVoodoo takes the exclusive full
+        // screen on top of that is its own switch. The popup without the
+        // exclusive mode is the borderless mode: the desktop resolution, the
+        // window composed like any other, alt-tab in an instant, and none of
+        // the surface losses and dead clicks the exclusive mode brought.
         _mode.Items.Add("Windowed");
-        _mode.Items.Add("Full screen");
-        // Which mode the game is in is decided by the exe, not by the wrapper,
-        // so that is what the list starts on. dgVoodoo.conf only follows.
-        _mode.SelectedIndex = IsExeWindowed(_exe) ? 0 : 1;
+        _mode.Items.Add("Borderless full screen");
+        _mode.Items.Add("Full screen (exclusive)");
+        // The exe says whether it is a window; dgVoodoo.conf says whether the
+        // full screen is exclusive. That is what the list starts on.
+        _mode.SelectedIndex = IsExeWindowed(_exe) ? MODE_WINDOWED
+                            : ReadConf("FullScreenMode", SectionGeneral) == "true" ? MODE_EXCLUSIVE
+                            : MODE_BORDERLESS;
 
         _skipIntro.IsChecked = GameSkipsIntro(_exe);
         _mode.SelectionChanged += (s2, e2) => FillResolutions();
@@ -756,7 +767,7 @@ internal sealed class LauncherWindow : Window
                 SetDisplayMode(int.Parse(parts[0], CultureInfo.InvariantCulture),
                                int.Parse(parts[1], CultureInfo.InvariantCulture));
 
-            WriteConf("FullScreenMode", _mode.SelectedIndex == 1 ? "true" : "false", SectionGeneral);
+            WriteConf("FullScreenMode", _mode.SelectedIndex == MODE_EXCLUSIVE ? "true" : "false", SectionGeneral);
             WriteConf("Antialiasing", new[] { "off", "2x", "4x", "8x" }[_antialias.SelectedIndex], SectionDirectX);
             WriteConf("Mipmapping", _mipmapping.SelectedIndex == 1 ? "appdriven" : "disabled", SectionDirectX);
             WriteConf("PhongShadingWhenPossible", _phong.IsChecked == true ? "true" : "false", SectionDirectX);
@@ -765,7 +776,7 @@ internal sealed class LauncherWindow : Window
 
             // Windowed or not is decided inside soa.exe, so the mode is written
             // into the exe itself before it starts.
-            string patched = ApplyWindowMode(_exe, _mode.SelectedIndex == 0,
+            string patched = ApplyWindowMode(_exe, _mode.SelectedIndex == MODE_WINDOWED,
                                              _skipIntro.IsChecked == true);
             if (patched != null)
             {
@@ -977,7 +988,7 @@ internal sealed class LauncherWindow : Window
         if (_resolutions == null) return;
 
         string previous = _resolution.SelectedItem as string;
-        bool windowed = _mode.SelectedIndex == 0;
+        bool windowed = _mode.SelectedIndex == MODE_WINDOWED;
 
         // Room for the frame, the caption and the taskbar.
         int maxWidth = (int)SystemParameters.WorkArea.Width - 16;

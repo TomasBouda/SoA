@@ -41,7 +41,7 @@ if (-not $FullScreen) {
     foreach ($c in $combos) {
         $sel = $c.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection() |
             ForEach-Object { $_.Current.Name }
-        if ($sel -in @('Full screen', 'Windowed')) {
+        if ($sel -in @('Full screen', 'Full screen (exclusive)', 'Borderless full screen', 'Windowed')) {
             if ($sel -ne 'Windowed') {
                 $c.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
                 Start-Sleep -Milliseconds 300

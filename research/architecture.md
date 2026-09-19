@@ -374,6 +374,17 @@ it when the mode is picked. Two more things belong to the same story:
   patch turns `or eax, 0x80000` into `or eax, 0`: the style is written back
   unchanged, and the pump's own recovery still runs when the game is
   activated again, by a click now as well as by the keyboard.
+* **A borderless full screen is the two switches crossed.** The exe's full
+  screen path makes a `WS_POPUP` window the size of the monitor; whether
+  dgVoodoo then takes the exclusive full screen is `FullScreenMode` in its
+  conf. With the popup and `FullScreenMode = false` the game runs at the
+  desktop resolution in a window the compositor composes like any other:
+  alt-tab in an instant, no `DDERR_SURFACELOST`, no layered window, and a
+  `PrintWindow` of it is a live frame. Verified 2026-09-19 at 2560x1440
+  (`Try to set display mode (2560 x 1440 x 32bpp)`, window 0,0-2560,1440,
+  style `0x94000000`, no caption). The launcher's Display box offers it
+  since 1.29.0 as *Borderless full screen*, the default; *Full screen
+  (exclusive)* is the old way, kept for anyone who wants it.
 * **The size of the window cannot be fixed the same way.** The game only
   resizes its window in the full screen path (`0x6282C5`), and the rectangle it
   applies there does not come from the display mode: a few lines earlier the

@@ -698,8 +698,11 @@ When something does not work
   crash, that is where the reason is.
 * Graphics are tuned by dgVoodooCpl.exe in the Game folder. With antialiasing
   trouble (dark frames around trees) lower Antialiasing to 4x or off.
-* Fullscreen is switched in dgVoodooCpl.exe through FullScreenMode. The default
-  is windowed, because mouse capture works reliably there.
+* The launcher's Display box has three modes. Borderless full screen is the
+  default: the desktop resolution, alt-tab in an instant, no exclusive mode.
+  Full screen (exclusive) is the old way and it is the one that can lose the
+  picture or the mouse after a switch to another window; Windowed is a framed
+  window that fits the desktop.
 '@
 }
 [IO.File]::WriteAllText((Join-Path $Out 'readme.txt'), $readme, [Text.Encoding]::Default)
