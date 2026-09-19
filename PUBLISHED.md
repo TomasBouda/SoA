@@ -57,11 +57,11 @@ From `_research/`: `*.md`
 
 - research/architecture.md
 - research/behavior.md
+- research/cheats.md
 - research/classes.md
 - research/dataset-format.md
 - research/editor-scripting.md
 - research/editor.md
-- research/cheats.md
 - research/map.md
 - research/missions.md
 - research/models.md
@@ -86,6 +86,7 @@ From `_research/tools/`: `*.py`, `*.ps1`, `addresses.json`, `publish-manifest.js
 - research/tools/addresses.json
 - research/tools/airstrike_inject.py
 - research/tools/build-package.ps1
+- research/tools/check.py
 - research/tools/dataset.py
 - research/tools/decode_error.py
 - research/tools/diff_memory.py
@@ -106,7 +107,6 @@ From `_research/tools/`: `*.py`, `*.ps1`, `addresses.json`, `publish-manifest.js
 - research/tools/gen_weapons_doc.py
 - research/tools/gen_weapons_web.py
 - research/tools/hud_contrast.py
-- research/tools/check.py
 - research/tools/import_texture.py
 - research/tools/launch_game.ps1
 - research/tools/list_ids.py
@@ -278,11 +278,11 @@ From `_research/tools/launcher/catalog/`: `*.png`
 - research/tools/launcher/catalog/SET_RPG7.png
 - research/tools/launcher/catalog/SET_RPK.png
 - research/tools/launcher/catalog/SET_SA7.png
+- research/tools/launcher/catalog/SET_SCHUTZWESTE_LEICHT.png
+- research/tools/launcher/catalog/SET_SCHUTZWESTE_SCHWER.png
 - research/tools/launcher/catalog/SET_SHILKA_MK.png
 - research/tools/launcher/catalog/SET_SHILKA.png
 - research/tools/launcher/catalog/SET_SHOTGUN.png
-- research/tools/launcher/catalog/SET_SCHUTZWESTE_LEICHT.png
-- research/tools/launcher/catalog/SET_SCHUTZWESTE_SCHWER.png
 - research/tools/launcher/catalog/SET_SPRENGSATZ.png
 - research/tools/launcher/catalog/SET_SUBSURFACEMINE.png
 - research/tools/launcher/catalog/SET_T55_125MMGUN.png
